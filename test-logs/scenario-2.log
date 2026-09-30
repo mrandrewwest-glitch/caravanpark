@@ -1,0 +1,23 @@
+OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook: MOCK | pinned date: 2026-09-30
+
+==================== Scenario 2: needs clarification ====================
+
+--- turn 1 ---
+[claude_mode] stub
+[caller]      "We're looking for something soon" (dialpad confidence 0.95)
+[extraction]  {"check_in_date":null,"check_out_date":null,"num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.4,"needs_clarification":true,"intent":"availability_enquiry","handoff_reason":null}
+[newbook]     not queried
+[decision]    clarify: no dates
+[ai reply]    "When are you thinking of coming?"
+[dialpad out] {"response_text":"When are you thinking of coming?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_002","turn":1,"status":"gathering_info"}}
+[latency]     74 ms (budget 3000 ms)
+  PASS  low confidence / needs clarification
+  PASS  asks when they are coming
+  PASS  NewBook NOT queried
+  PASS  no transfer
+  PASS  responded within 3000 ms
+
+>>> Scenario 2: needs clarification: PASS (5/5 checks)
+
+==================== SUMMARY ====================
+PASS  Scenario 2: needs clarification

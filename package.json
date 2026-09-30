@@ -1,0 +1,23 @@
+{
+  "name": "onsite-phone-receptionist",
+  "version": "0.1.0",
+  "description": "OnSite: conversational AI phone receptionist for caravan parks (Dialpad + Claude + NewBook)",
+  "main": "index.js",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node index.js",
+    "test": "node tests.js all",
+    "test:scenario-1": "node tests.js 1",
+    "test:scenario-2": "node tests.js 2",
+    "test:scenario-3": "node tests.js 3",
+    "test:scenario-4": "node tests.js 4",
+    "test:extra": "node tests.js extra"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.129.0",
+    "dotenv": "^16.4.5",
+    "express": "^5.2.1",
+    "serverless-http": "^4.0.0"
+  }
+}

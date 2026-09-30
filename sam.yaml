@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: OnSite - AI phone receptionist (Dialpad webhook -> API Gateway -> Lambda)
+
+Parameters:
+  AnthropicSecretArn:
+    Type: String
+    Description: Secrets Manager secret whose value is the Anthropic API key
+  ParkId:
+    Type: String
+    Default: friend-caravan-park
+  AlarmEmail:
+    Type: String
+    Description: Email notified when the error alarm fires
+
+Resources:
+  ReceptionistFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs20.x
+      Handler: lambda.handler
+      CodeUri: .
+      MemorySize: 512
+      Timeout: 10   # the app enforces its own 2.8s per-turn budget (TURN_DEADLINE_MS)
+      Environment:
+        Variables:
+          NODE_ENV: production          # disables /test-call
+          CLAUDE_MODE: live
+          ANTHROPIC_SECRET_ARN: !Ref AnthropicSecretArn
+          PARK_ID: !Ref ParkId
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref AnthropicSecretArn
+      Events:
+        PhoneCallback:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /phone-callback
+            Method: POST
+        Health:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /health
+            Method: GET
+
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: prod
+      MethodSettings:
+        - ResourcePath: /*
+          HttpMethod: '*'
+          ThrottlingRateLimit: 100
+          ThrottlingBurstLimit: 200
+
+  AlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      Subscription:
+        - Protocol: email
+          Endpoint: !Ref AlarmEmail
+
+  ErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Lambda errors above 5% of invocations
+      Metrics:
+        - Id: rate
+          Expression: 100 * errors / MAX([errors, invocations])
+          Label: ErrorRatePercent
+        - Id: errors
+          ReturnData: false
+          MetricStat:
+            Metric: { Namespace: AWS/Lambda, MetricName: Errors, Dimensions: [{ Name: FunctionName, Value: !Ref ReceptionistFunction }] }
+            Period: 300
+            Stat: Sum
+        - Id: invocations
+          ReturnData: false
+          MetricStat:
+            Metric: { Namespace: AWS/Lambda, MetricName: Invocations, Dimensions: [{ Name: FunctionName, Value: !Ref ReceptionistFunction }] }
+            Period: 300
+            Stat: Sum
+      ComparisonOperator: GreaterThanThreshold
+      Threshold: 5
+      EvaluationPeriods: 1
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref AlertTopic]
+
+Outputs:
+  PhoneCallbackUrl:
+    Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com/prod/phone-callback
