@@ -7,10 +7,7 @@ Description: >-
 Parameters:
   DomainName:
     Type: String
-    Description: Public host name Twilio calls, e.g. calls.example.com (becomes PUBLIC_BASE_URL)
-  HostedZoneId:
-    Type: AWS::Route53::HostedZone::Id
-    Description: Existing Route 53 hosted zone that contains DomainName (used for certificate validation and the alias record)
+    Description: Public host name Twilio calls, e.g. calls.onsite.papilots.co (becomes PUBLIC_BASE_URL). DNS is managed outside AWS (GoDaddy).
   VpcId:
     Type: AWS::EC2::VPC::Id
   PublicSubnetIds:
@@ -129,8 +126,6 @@ Resources:
     Properties:
       DomainName: !Ref DomainName
       ValidationMethod: DNS
-      DomainValidationOptions:
-        - { DomainName: !Ref DomainName, HostedZoneId: !Ref HostedZoneId }
 
   LoadBalancer:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
@@ -175,16 +170,6 @@ Resources:
       DefaultActions:
         - Type: redirect
           RedirectConfig: { Protocol: HTTPS, Port: '443', StatusCode: HTTP_301 }
-
-  DnsRecord:
-    Type: AWS::Route53::RecordSet
-    Properties:
-      HostedZoneId: !Ref HostedZoneId
-      Name: !Ref DomainName
-      Type: A
-      AliasTarget:
-        DNSName: !GetAtt LoadBalancer.DNSName
-        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID
 
   # ---------- IAM ----------
   ExecutionRole:   # lets ECS pull the image, write logs and read the secret into the container environment
@@ -304,6 +289,9 @@ Outputs:
     Value: !Ref Secret
   PublicBaseUrl:
     Value: !Sub 'https://${DomainName}'
+  LoadBalancerDnsName:
+    Description: Create a CNAME at your DNS host from DomainName to this value
+    Value: !GetAtt LoadBalancer.DNSName
   TwilioVoiceWebhook:
     Value: !Sub 'https://${DomainName}/twilio/voice'
   TwilioStatusWebhook:
