@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node index.js",
-    "test": "node tests.js all && node tests-platform.js all && node tests-store.js all && node tests-newbook.js all",
+    "test": "node tests.js all && node tests-platform.js all && node tests-store.js all && node tests-newbook.js all && node tests-demo-web.js",
     "test:scenario-1": "node tests.js 1",
     "test:scenario-2": "node tests.js 2",
     "test:scenario-3": "node tests.js 3",
@@ -30,7 +30,9 @@
     "test:newbook": "node tests-newbook.js all",
     "test:rest": "NEWBOOK=rest node tests.js all && NEWBOOK=rest node tests-platform.js all",
     "test:all-backends": "npm test && npm run test:rest && STORE=dynamo NEWBOOK=rest node tests.js all && STORE=dynamo NEWBOOK=rest node tests-platform.js all && npm run test:dynamo",
-    "demo": "node demo.js"
+    "demo": "node demo.js",
+    "demo:web": "node scripts/build-demo-web.js",
+    "test:demo-web": "node tests-demo-web.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
@@ -42,6 +44,8 @@
     "serverless-http": "^4.0.0"
   },
   "devDependencies": {
-    "dynalite": "^4.0.0"
+    "dynalite": "^4.0.0",
+    "esbuild": "^0.28.2",
+    "js-sha256": "^1.0.0"
   }
 }

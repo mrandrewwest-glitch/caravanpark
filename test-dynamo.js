@@ -4,7 +4,7 @@
 // including conditional writes, update expressions and GSIs). Each test gets its own table.
 const crypto = require('crypto');
 const dynalite = require('dynalite');
-const { CreateTableCommand } = require('@aws-sdk/client-dynamodb');
+const { CreateTableCommand, DescribeTableCommand } = require('@aws-sdk/client-dynamodb');
 const { DynamoStore, TABLE_DEFINITION } = require('./dynamo-store');
 
 let server = null;
@@ -24,7 +24,15 @@ async function newDynamoStore({ now, tableName = `onsite-test-${crypto.randomUUI
   const ep = await ensureServer();
   const store = DynamoStore.create({ table: tableName, endpoint: ep, region: 'ap-southeast-2', credentials: { accessKeyId: 'test', secretAccessKey: 'test' }, now });
   if (maxItemBytes) store.maxItemBytes = maxItemBytes;
-  if (create) await store.rawClient.send(new CreateTableCommand(TABLE_DEFINITION(tableName)));
+  if (create) {
+    await store.rawClient.send(new CreateTableCommand(TABLE_DEFINITION(tableName)));
+    // A table is not usable the instant CreateTable returns (real DynamoDB and the emulator both create asynchronously).
+    for (let i = 0; i < 100; i += 1) {
+      const { Table } = await store.rawClient.send(new DescribeTableCommand({ TableName: tableName }));
+      if (Table.TableStatus === 'ACTIVE' && (Table.GlobalSecondaryIndexes || []).every((g) => g.IndexStatus === 'ACTIVE')) break;
+      await new Promise((r) => setTimeout(r, 25));
+    }
+  }
   return store;
 }
 
