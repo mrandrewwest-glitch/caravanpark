@@ -5,12 +5,12 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 --- turn 1 ---
 [claude_mode] stub
 [caller]      "Hi, do you have any sites available for next weekend?" (dialpad confidence 0.95)
-[extraction]  {"check_in_date":"2026-10-09","check_out_date":"2026-10-11","num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.9,"needs_clarification":false,"intent":"availability_enquiry","handoff_reason":null}
+[extraction]  {"check_in_date":"2026-10-09","check_out_date":"2026-10-11","num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.9,"needs_clarification":false,"intent":"availability_enquiry","handoff_reason":null,"chosen_site_id":null,"guest_name":null,"mobile":null,"confirmation":null,"wants_human":false}
 [newbook]     getAvailability(2026-10-09, 2026-10-11) -> 5 sites; passed to Claude: [8, 15, 12, 5, 20]
 [decision]    respond: availability
 [ai reply]    "Good news, we've got 5 sites for October 9th to October 11th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?"
-[dialpad out] {"response_text":"Good news, we've got 5 sites for October 9th to October 11th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_001","turn":1,"status":"showing_availability"}}
-[latency]     106 ms (budget 3000 ms)
+[dialpad out] {"response_text":"Good news, we've got 5 sites for October 9th to October 11th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_001","turn":1,"status":"showing_availability","park_id":"friend-caravan-park"}}
+[latency]     103 ms (budget 3000 ms)
   PASS  extracted a check-in and a later check-out (weekend, 2 nights)
   PASS  extraction confidence >= 0.8
   PASS  queried mock NewBook once

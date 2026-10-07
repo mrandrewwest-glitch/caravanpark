@@ -1,0 +1,36 @@
+OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook, SMS, payments, notifier: MOCK | pinned date: 2026-09-30
+
+==================== AI booking: availability -> read-back -> held booking -> SMS payment link -> paid -> confirmed ====================
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  availability reply ends by asking which site to book
+  PASS  asks for the name after the site is chosen
+  PASS  asks to use the caller ID number for the payment link
+  PASS  read-back has site, total from NewBook ($925), name and hold time (45 min)
+  PASS  read-back turn creates nothing; createBooking is called exactly once overall
+  PASS  booking created once as provisional, with a ref
+  PASS  NewBook booking is tagged as AI-created with the guest details
+  PASS  payment link created for the NewBook total ($925 = 92500 cents)
+  PASS  payment link texted to the caller from the park number
+  PASS  staff alerted that an AI booking is held
+  PASS  card details never requested (no card wording in any reply)
+    caller: "Yes"
+    ai:     "You're all set. The payment link is on its way to your phone, and your booking is confirmed as soon as it's paid. Is there anything else I can help with?"
+  PASS  a repeated "yes" cannot create a second booking
+  PASS  payment webhook confirms the booking in NewBook and records the payment
+  PASS  confirmation SMS sent
+  PASS  duplicate webhook is ignored (no second confirmation or payment)
+  PASS  internal record is confirmed
+
+>>> booking: PASS (16/16 checks)
+
+==================== SUMMARY ====================
+PASS  booking

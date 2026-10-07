@@ -1,6 +1,6 @@
 
 > onsite-phone-receptionist@0.1.0 test
-> node tests.js all
+> node tests.js all && node tests-platform.js all
 
 OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook: MOCK | pinned date: 2026-09-30
 
@@ -9,11 +9,11 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 --- turn 1 ---
 [claude_mode] stub
 [caller]      "Hi, do you have any sites available for next weekend?" (dialpad confidence 0.95)
-[extraction]  {"check_in_date":"2026-10-09","check_out_date":"2026-10-11","num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.9,"needs_clarification":false,"intent":"availability_enquiry","handoff_reason":null}
+[extraction]  {"check_in_date":"2026-10-09","check_out_date":"2026-10-11","num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.9,"needs_clarification":false,"intent":"availability_enquiry","handoff_reason":null,"chosen_site_id":null,"guest_name":null,"mobile":null,"confirmation":null,"wants_human":false}
 [newbook]     getAvailability(2026-10-09, 2026-10-11) -> 5 sites; passed to Claude: [8, 15, 12, 5, 20]
 [decision]    respond: availability
 [ai reply]    "Good news, we've got 5 sites for October 9th to October 11th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?"
-[dialpad out] {"response_text":"Good news, we've got 5 sites for October 9th to October 11th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_001","turn":1,"status":"showing_availability"}}
+[dialpad out] {"response_text":"Good news, we've got 5 sites for October 9th to October 11th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_001","turn":1,"status":"showing_availability","park_id":"friend-caravan-park"}}
 [latency]     103 ms (budget 3000 ms)
   PASS  extracted a check-in and a later check-out (weekend, 2 nights)
   PASS  extraction confidence >= 0.8
@@ -30,12 +30,12 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 --- turn 1 ---
 [claude_mode] stub
 [caller]      "We're looking for something soon" (dialpad confidence 0.95)
-[extraction]  {"check_in_date":null,"check_out_date":null,"num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.4,"needs_clarification":true,"intent":"availability_enquiry","handoff_reason":null}
+[extraction]  {"check_in_date":null,"check_out_date":null,"num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.4,"needs_clarification":true,"intent":"availability_enquiry","handoff_reason":null,"chosen_site_id":null,"guest_name":null,"mobile":null,"confirmation":null,"wants_human":false}
 [newbook]     not queried
 [decision]    clarify: no dates
 [ai reply]    "When are you thinking of coming?"
-[dialpad out] {"response_text":"When are you thinking of coming?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_002","turn":1,"status":"gathering_info"}}
-[latency]     8 ms (budget 3000 ms)
+[dialpad out] {"response_text":"When are you thinking of coming?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_002","turn":1,"status":"gathering_info","park_id":"friend-caravan-park"}}
+[latency]     7 ms (budget 3000 ms)
   PASS  low confidence / needs clarification
   PASS  asks when they are coming
   PASS  NewBook NOT queried
@@ -49,12 +49,12 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 --- turn 1 ---
 [claude_mode] stub
 [caller]      "We're coming Oct 10–15 with two kids and our dog" (dialpad confidence 0.95)
-[extraction]  {"check_in_date":"2026-10-10","check_out_date":"2026-10-15","num_guests":4,"vehicle_type":null,"has_pet":true,"special_requests":"family with kids","confidence":0.95,"needs_clarification":false,"intent":"availability_enquiry","handoff_reason":null}
+[extraction]  {"check_in_date":"2026-10-10","check_out_date":"2026-10-15","num_guests":4,"vehicle_type":null,"has_pet":true,"special_requests":"family with kids","confidence":0.95,"needs_clarification":false,"intent":"availability_enquiry","handoff_reason":null,"chosen_site_id":null,"guest_name":null,"mobile":null,"confirmation":null,"wants_human":false}
 [newbook]     getAvailability(2026-10-10, 2026-10-15) -> 5 sites; passed to Claude: [12, 5]
 [decision]    respond: availability
 [ai reply]    "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with a playground nearby, power and water, and Site 5 is $250 a night with power, water and wifi. Would one of those suit you?"
-[dialpad out] {"response_text":"Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with a playground nearby, power and water, and Site 5 is $250 a night with power, water and wifi. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_003","turn":1,"status":"showing_availability"}}
-[latency]     57 ms (budget 3000 ms)
+[dialpad out] {"response_text":"Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with a playground nearby, power and water, and Site 5 is $250 a night with power, water and wifi. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_003","turn":1,"status":"showing_availability","park_id":"friend-caravan-park"}}
+[latency]     56 ms (budget 3000 ms)
   PASS  dates 2026-10-10 to 2026-10-15
   PASS  has_pet true
   PASS  num_guests 3 or 4
@@ -71,13 +71,13 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 --- turn 1 ---
 [claude_mode] stub
 [caller]      "I want to book Site 12 for October 10th" (dialpad confidence 0.95)
-[extraction]  {"check_in_date":"2026-10-10","check_out_date":null,"num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.95,"needs_clarification":false,"intent":"booking","handoff_reason":"wants to book"}
+[extraction]  {"check_in_date":"2026-10-10","check_out_date":null,"num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.85,"needs_clarification":false,"intent":"booking","handoff_reason":"wants to book","chosen_site_id":12,"guest_name":null,"mobile":null,"confirmation":null,"wants_human":false}
 [newbook]     not queried
 [decision]    transfer: booking intent
 [ai reply]    "Perfect, let me connect you with our team to confirm that."
-[dialpad out] {"response_text":"Perfect, let me connect you with our team to confirm that.","transfer_to_human":true,"metadata":{"call_sid":"mock_call_004","turn":1,"status":"ready_to_transfer"}}
+[dialpad out] {"response_text":"Perfect, let me connect you with our team to confirm that.","transfer_to_human":true,"metadata":{"call_sid":"mock_call_004","turn":1,"status":"ready_to_transfer","park_id":"friend-caravan-park"}}
 [handoff]     Customer: from 2026-10-10. Reason for transfer: wants to book.
-[latency]     2 ms (budget 3000 ms)
+[latency]     3 ms (budget 3000 ms)
   PASS  transfer_to_human true
   PASS  NewBook NOT queried
   PASS  handoff details include phone + conversation history
@@ -92,22 +92,22 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 --- E1 turn 1 ---
 [claude_mode] stub
 [caller]      "We're looking for something soon" (dialpad confidence 0.95)
-[extraction]  {"check_in_date":null,"check_out_date":null,"num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.4,"needs_clarification":true,"intent":"availability_enquiry","handoff_reason":null}
+[extraction]  {"check_in_date":null,"check_out_date":null,"num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.4,"needs_clarification":true,"intent":"availability_enquiry","handoff_reason":null,"chosen_site_id":null,"guest_name":null,"mobile":null,"confirmation":null,"wants_human":false}
 [newbook]     not queried
 [decision]    clarify: no dates
 [ai reply]    "When are you thinking of coming?"
-[dialpad out] {"response_text":"When are you thinking of coming?","transfer_to_human":false,"metadata":{"call_sid":"x1","turn":1,"status":"gathering_info"}}
+[dialpad out] {"response_text":"When are you thinking of coming?","transfer_to_human":false,"metadata":{"call_sid":"x1","turn":1,"status":"gathering_info","park_id":"friend-caravan-park"}}
 [latency]     3 ms (budget 3000 ms)
 
 --- E1 turn 2 ---
 [claude_mode] stub
 [caller]      "October 12th for 3 nights" (dialpad confidence 0.95)
-[extraction]  {"check_in_date":"2026-10-12","check_out_date":"2026-10-15","num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.95,"needs_clarification":false,"intent":"availability_enquiry","handoff_reason":null}
+[extraction]  {"check_in_date":"2026-10-12","check_out_date":"2026-10-15","num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.95,"needs_clarification":false,"intent":"availability_enquiry","handoff_reason":null,"chosen_site_id":null,"guest_name":null,"mobile":null,"confirmation":null,"wants_human":false}
 [newbook]     getAvailability(2026-10-12, 2026-10-15) -> 5 sites; passed to Claude: [8, 15, 12, 5, 20]
 [decision]    respond: availability
 [ai reply]    "Good news, we've got 5 sites for October 12th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?"
-[dialpad out] {"response_text":"Good news, we've got 5 sites for October 12th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"x1","turn":2,"status":"showing_availability"}}
-[latency]     54 ms (budget 3000 ms)
+[dialpad out] {"response_text":"Good news, we've got 5 sites for October 12th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"x1","turn":2,"status":"showing_availability","park_id":"friend-caravan-park"}}
+[latency]     52 ms (budget 3000 ms)
   PASS  E1 turn counter increments and availability answered
   PASS  E1 checkout computed from nights (Oct 12 -> Oct 15)
 
@@ -116,13 +116,13 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 --- E2 turn 3 ---
 [claude_mode] stub
 [caller]      "not sure really" (dialpad confidence 0.95)
-[extraction]  {"check_in_date":null,"check_out_date":null,"num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.4,"needs_clarification":true,"intent":"availability_enquiry","handoff_reason":null}
+[extraction]  {"check_in_date":null,"check_out_date":null,"num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.4,"needs_clarification":true,"intent":"availability_enquiry","handoff_reason":null,"chosen_site_id":null,"guest_name":null,"mobile":null,"confirmation":null,"wants_human":false}
 [newbook]     not queried
 [decision]    transfer: could not understand after clarifications
 [ai reply]    "I'm having trouble getting that, so let me put you through to our team."
-[dialpad out] {"response_text":"I'm having trouble getting that, so let me put you through to our team.","transfer_to_human":true,"metadata":{"call_sid":"x2","turn":3,"status":"ready_to_transfer"}}
+[dialpad out] {"response_text":"I'm having trouble getting that, so let me put you through to our team.","transfer_to_human":true,"metadata":{"call_sid":"x2","turn":3,"status":"ready_to_transfer","park_id":"friend-caravan-park"}}
 [handoff]     Reason for transfer: AI could not understand after 2 clarifications.
-[latency]     3 ms (budget 3000 ms)
+[latency]     4 ms (budget 3000 ms)
   PASS  E2 transfers after 2 failed clarifications
 
 [E3] low transcript confidence skips Claude
@@ -134,7 +134,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [newbook]     not queried
 [decision]    clarify: low transcript confidence
 [ai reply]    "Sorry, I didn't quite catch that. Could you say that again?"
-[dialpad out] {"response_text":"Sorry, I didn't quite catch that. Could you say that again?","transfer_to_human":false,"metadata":{"call_sid":"x3","turn":1,"status":"gathering_info"}}
+[dialpad out] {"response_text":"Sorry, I didn't quite catch that. Could you say that again?","transfer_to_human":false,"metadata":{"call_sid":"x3","turn":1,"status":"gathering_info","park_id":"friend-caravan-park"}}
 [latency]     4 ms (budget 3000 ms)
   PASS  E3 asks caller to repeat, extraction skipped
 
@@ -143,13 +143,13 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 --- E4 ---
 [claude_mode] stub
 [caller]      "Any sites Oct 10-15 please" (dialpad confidence 0.95)
-[extraction]  {"check_in_date":"2026-10-10","check_out_date":"2026-10-15","num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.95,"needs_clarification":false,"intent":"availability_enquiry","handoff_reason":null}
+[extraction]  {"check_in_date":"2026-10-10","check_out_date":"2026-10-15","num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.95,"needs_clarification":false,"intent":"availability_enquiry","handoff_reason":null,"chosen_site_id":null,"guest_name":null,"mobile":null,"confirmation":null,"wants_human":false}
 [newbook]     getAvailability(2026-10-10, 2026-10-15) -> error sites; passed to Claude: []
 [decision]    transfer: NewBook unavailable, no cache
 [ai reply]    "We can't check availability right now, let me get someone for you."
-[dialpad out] {"response_text":"We can't check availability right now, let me get someone for you.","transfer_to_human":true,"metadata":{"call_sid":"x4","turn":1,"status":"ready_to_transfer"}}
+[dialpad out] {"response_text":"We can't check availability right now, let me get someone for you.","transfer_to_human":true,"metadata":{"call_sid":"x4","turn":1,"status":"ready_to_transfer","park_id":"friend-caravan-park"}}
 [handoff]     Customer: 2026-10-10 to 2026-10-15. Reason for transfer: availability system down.
-[latency]     53 ms (budget 3000 ms)
+[latency]     52 ms (budget 3000 ms)
   PASS  E4 escalates with outage message
 
 [E5] Claude API failure
@@ -161,7 +161,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [newbook]     not queried
 [decision]    fallback: Claude 529 overloaded
 [ai reply]    "Our system is busy, let me transfer you to our team."
-[dialpad out] {"response_text":"Our system is busy, let me transfer you to our team.","transfer_to_human":true,"metadata":{"call_sid":"x5","turn":null,"status":"ready_to_transfer","error":"Claude 529 overloaded"}}
+[dialpad out] {"response_text":"Our system is busy, let me transfer you to our team.","transfer_to_human":true,"metadata":{"call_sid":"x5","turn":null,"status":"ready_to_transfer","error":"Claude 529 overloaded","park_id":"friend-caravan-park"}}
 [latency]     2 ms (budget 3000 ms)
   PASS  E5 returns the safe fallback + transfer
 
@@ -174,7 +174,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [newbook]     not queried
 [decision]    fallback: deadline exceeded
 [ai reply]    "Our system is busy, let me transfer you to our team."
-[dialpad out] {"response_text":"Our system is busy, let me transfer you to our team.","transfer_to_human":true,"metadata":{"call_sid":"x6","turn":null,"status":"ready_to_transfer","error":"deadline exceeded"}}
+[dialpad out] {"response_text":"Our system is busy, let me transfer you to our team.","transfer_to_human":true,"metadata":{"call_sid":"x6","turn":null,"status":"ready_to_transfer","error":"deadline exceeded","park_id":"friend-caravan-park"}}
 [latency]     604 ms (budget 3000 ms)
   PASS  E6 falls back within ~1s instead of hanging
 
@@ -183,25 +183,25 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 --- E7 spam ---
 [claude_mode] stub
 [caller]      "Hi, this is about your extended warranty" (dialpad confidence 0.95)
-[extraction]  {"check_in_date":null,"check_out_date":null,"num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.9,"needs_clarification":false,"intent":"spam","handoff_reason":"spam"}
+[extraction]  {"check_in_date":null,"check_out_date":null,"num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.9,"needs_clarification":false,"intent":"spam","handoff_reason":"spam","chosen_site_id":null,"guest_name":null,"mobile":null,"confirmation":null,"wants_human":false}
 [newbook]     not queried
 [decision]    end: spam/bot caller
 [ai reply]    "Thanks for calling, have a great day."
-[dialpad out] {"response_text":"Thanks for calling, have a great day.","transfer_to_human":false,"metadata":{"call_sid":"x7a","turn":1,"status":"ended"}}
-[latency]     5 ms (budget 3000 ms)
+[dialpad out] {"response_text":"Thanks for calling, have a great day.","transfer_to_human":false,"metadata":{"call_sid":"x7a","turn":1,"status":"ended","park_id":"friend-caravan-park"}}
+[latency]     3 ms (budget 3000 ms)
   PASS  E7 spam: end_call, no transfer
   PASS  E7 complaint transfers
 
 --- E7 no suitable site ---
 [claude_mode] stub
 [caller]      "We are 10 people, Oct 10-15" (dialpad confidence 0.95)
-[extraction]  {"check_in_date":"2026-10-10","check_out_date":"2026-10-15","num_guests":10,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.95,"needs_clarification":false,"intent":"availability_enquiry","handoff_reason":null}
+[extraction]  {"check_in_date":"2026-10-10","check_out_date":"2026-10-15","num_guests":10,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.95,"needs_clarification":false,"intent":"availability_enquiry","handoff_reason":null,"chosen_site_id":null,"guest_name":null,"mobile":null,"confirmation":null,"wants_human":false}
 [newbook]     getAvailability(2026-10-10, 2026-10-15) -> 5 sites; passed to Claude: []
 [decision]    transfer: no suitable availability
 [ai reply]    "I'm sorry, I can't find anything available that suits those details. Let me connect you with our team to see what we can do."
-[dialpad out] {"response_text":"I'm sorry, I can't find anything available that suits those details. Let me connect you with our team to see what we can do.","transfer_to_human":true,"metadata":{"call_sid":"x7c","turn":1,"status":"ready_to_transfer"}}
+[dialpad out] {"response_text":"I'm sorry, I can't find anything available that suits those details. Let me connect you with our team to see what we can do.","transfer_to_human":true,"metadata":{"call_sid":"x7c","turn":1,"status":"ready_to_transfer","park_id":"friend-caravan-park"}}
 [handoff]     Customer: 10 guests, 2026-10-10 to 2026-10-15. Reason for transfer: no availability for requested dates/needs.
-[latency]     52 ms (budget 3000 ms)
+[latency]     51 ms (budget 3000 ms)
   PASS  E7 no suitable availability transfers
   PASS  E7 out-of-scope transfers
 
@@ -210,20 +210,24 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
   PASS  E8 /phone-callback does not leak the debug trace
 
 [E9] 30 concurrent calls
-  30 calls in 88 ms, slowest 86 ms
+  30 calls in 105 ms, slowest 102 ms
   PASS  E9 all 30 succeeded, none transferred
   PASS  E9 slowest under 3000 ms
 
 [E11] live Claude client against a fake SDK (no network)
   PASS  E11 parses fenced JSON and normalises the extraction
   PASS  E11 caller text is wrapped in <caller_message> tags, not in the system prompt
+  PASS  E11 normaliser rejects malformed model output (string site id, bad confirmation, unknown intent)
+  PASS  E11 normaliser keeps valid booking-flow fields
   PASS  E11 uses Haiku for extraction and Sonnet for the reply
 
 [E10] Lambda handler via API Gateway (REST proxy) event
+  PASS  E10 Lambda refuses to start in production on the in-memory store
   statusCode 200: {"response_text":"Good news, we've got 3 sites that welcome pets for October 10th to October 15th. Site 8 is $120 a night with power, and Site 12 is $185 a nigh...
   PASS  E10 Lambda handler returns 200 with a Dialpad response
+  PASS  E10 scheduled jobs handler runs (hold expiry + call finalisation)
 
->>> Extra: multi-turn, failure modes, concurrency, Lambda wrapper: PASS (19/19 checks)
+>>> Extra: multi-turn, failure modes, concurrency, Lambda wrapper: PASS (23/23 checks)
 
 ==================== SUMMARY ====================
 PASS  Scenario 1: simple availability check
@@ -231,3 +235,405 @@ PASS  Scenario 2: needs clarification
 PASS  Scenario 3: pet-friendly request
 PASS  Scenario 4: escalation (booking intent)
 PASS  Extra: multi-turn, failure modes, concurrency, Lambda wrapper
+OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook, SMS, payments, notifier: MOCK | pinned date: 2026-09-30
+
+==================== AI booking: availability -> read-back -> held booking -> SMS payment link -> paid -> confirmed ====================
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  availability reply ends by asking which site to book
+  PASS  asks for the name after the site is chosen
+  PASS  asks to use the caller ID number for the payment link
+  PASS  read-back has site, total from NewBook ($925), name and hold time (45 min)
+  PASS  read-back turn creates nothing; createBooking is called exactly once overall
+  PASS  booking created once as provisional, with a ref
+  PASS  NewBook booking is tagged as AI-created with the guest details
+  PASS  payment link created for the NewBook total ($925 = 92500 cents)
+  PASS  payment link texted to the caller from the park number
+  PASS  staff alerted that an AI booking is held
+  PASS  card details never requested (no card wording in any reply)
+    caller: "Yes"
+    ai:     "You're all set. The payment link is on its way to your phone, and your booking is confirmed as soon as it's paid. Is there anything else I can help with?"
+  PASS  a repeated "yes" cannot create a second booking
+  PASS  payment webhook confirms the booking in NewBook and records the payment
+  PASS  confirmation SMS sent
+  PASS  duplicate webhook is ignored (no second confirmation or payment)
+  PASS  internal record is confirmed
+
+>>> booking: PASS (16/16 checks)
+
+==================== Hold expiry: per-park and adjustable, reminder, release, idempotent job ====================
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got one site that welcome pets for October 10th to October 15th. Site 1 is $100 a night with power and water. Which one would you like me to book?"
+    caller: "Site 1 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 1, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $500. I'll hold it for 2 hours and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 1 for you for 2 hours and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  lakeside holds for its configured 45 minutes
+  PASS  riverbend holds for its configured 120 minutes
+  PASS  read-back to the caller states the park-specific hold
+  PASS  reminder SMS goes out at half-time for the 45 min hold only
+  PASS  expired hold is released in NewBook and the caller is told
+  PASS  released site is bookable again
+  PASS  the 120 minute hold is untouched
+  PASS  running the job again does not re-release or re-text
+  PASS  park can change its hold time (applies to new holds)
+  PASS  another park is unaffected
+  PASS  hold time outside 15..1440 minutes is rejected
+  PASS  non-adjustable settings (e.g. billing) are rejected
+  PASS  admin API requires the token
+  PASS  admin never echoes payment credentials
+    caller: "Hi, any sites Nov 3 to 6 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for November 3rd to November 6th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, November 3rd to November 6th, 4 guests with a pet, under the name Sam Taylor. The total is $555. I'll hold it for 90 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 90 minutes and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  a new booking uses the new 90 minute hold
+
+>>> holds: PASS (15/15 checks)
+
+==================== Payment webhook: signature, amounts, unknown bookings, late payments ====================
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  bad signature -> 401, booking stays held
+  PASS  tampered body with a valid old signature -> 401
+  PASS  event signed with another park's secret -> 401
+  PASS  unknown park -> 400
+  PASS  wrong amount is NOT confirmed; staff alerted
+  PASS  payment for an unknown booking alerts staff
+  PASS  hold expired and released first
+  PASS  late payment + site still free -> re-booked and confirmed
+    caller: "Hi, any sites Nov 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for November 10th to November 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 1 1 1. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, November 10th to November 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 1 1 1. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 1 1 1. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+    caller: "Hi, any sites Nov 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for November 10th to November 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Alex Lee"
+    ai:     "I'll text the payment link to the number you're calling from, ending 2 2 2. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, November 10th to November 15th, 4 guests with a pet, under the name Alex Lee. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 2 2 2. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 2 2 2. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  late payment + site taken -> refunded in full, original payer told
+  PASS  the other caller's booking is untouched
+  PASS  staff alerted about the refund
+
+[P-race] concurrency
+    caller: "Hi, any sites Dec 1 to 5 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for December 1st to December 5th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Casey Wu"
+    ai:     "I'll text the payment link to the number you're calling from, ending 3 3 3. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, December 1st to December 5th, 4 guests with a pet, under the name Casey Wu. The total is $740. I'll hold it for 45 minutes and text a secure payment link to the number ending 3 3 3. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 3 3 3. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  the same webhook delivered twice at once is processed once
+    caller: "Hi, any sites Dec 10 to 14 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for December 10th to December 14th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Drew Fox"
+    ai:     "I'll text the payment link to the number you're calling from, ending 4 4 4. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, December 10th to December 14th, 4 guests with a pet, under the name Drew Fox. The total is $740. I'll hold it for 45 minutes and text a secure payment link to the number ending 4 4 4. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 4 4 4. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  payment racing the expiry job ends consistent: paid, exactly one confirmed NewBook booking, no refund
+
+>>> payments: PASS (13/13 checks)
+
+==================== Booking safety: conflicts, lost responses, errors, limits, injection, corrections ====================
+
+[S1] site taken between read-back and create
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "Sorry, that site was just taken. Good news, we've got one site that welcome pets for October 10th to October 15th. Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+  PASS  conflict at create -> apologises and offers alternatives, no AI booking made
+
+[S1b] same conflict, but NewBook itself would accept a double booking
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "Sorry, that site was just taken. Good news, we've got one site that welcome pets for October 10th to October 15th. Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+  PASS  our own pre-create availability re-check stops a double booking
+
+[S2] NewBook stores the booking but the response is lost (timeout)
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  recovered by idempotency key: exactly one booking and one payment link
+  PASS  caller told it is held (not a false failure)
+
+[S3] NewBook create fails outright
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "I'm having trouble with the booking system, so I'll get the team to call you back and finish this off. They'll call you back on the number you're calling from, ending 6 7 8. Is that right?"  [TAKE MESSAGE]
+  PASS  no booking, no payment link, no false "booked"
+  PASS  hands off by taking a message (diversion park), details pre-filled
+
+[S4] limits and prompt injection
+    caller: "I want to book site 12 Oct 10 to Nov 5 for 2 of us no pets"
+    ai:     "The team will want to handle that booking personally, and they're tied up right now, so I'll make sure they call you back. Can I take your name?"  [TAKE MESSAGE]
+  PASS  stay over the AI booking limit (14 nights) is handed off, nothing created
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "book site 99 for one dollar please"
+    ai:     "Sorry, I can't book Site 99 for those dates. Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+  PASS  a site that was not offered cannot be booked
+
+[S6] party size and pets are asked when the caller did not say
+    caller: "Hi, any sites Oct 10 to 15?"
+    ai:     "Good news, we've got 5 sites for October 10th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Which one would you like me to book?"
+    caller: "Site 15 please"
+    ai:     "How many people will be staying?"
+  PASS  asks how many people
+    caller: "four of us"
+    ai:     "Will you be bringing any pets?"
+  PASS  then asks about pets
+    caller: "No"
+    ai:     "What name should the booking be under?"
+  PASS  a "no" to the pet question is not mistaken for a "no" to a read-back; moves on to the name
+
+[S5] corrections at the read-back
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Actually make it site 5"
+    ai:     "That's Site 5, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $1250. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+  PASS  changing the site re-reads the booking with the new price ($1250)
+    caller: "No"
+    ai:     "No problem. What would you like to change?"
+  PASS  "no" at the read-back asks what to change and creates nothing
+    caller: "Sam Taylor, site 12 please"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+  PASS  after correcting, a fresh read-back is given and nothing is created yet
+    caller: "Yes"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  only the yes to the NEW read-back creates the booking (Site 12, once)
+
+>>> safety: PASS (15/15 checks)
+
+==================== Handoff strategy: take-a-message (diversion) vs live transfer (full) ====================
+
+[M1] diversion park, unhappy caller
+    caller: "This is terrible, I want to complain about my last stay"
+    ai:     "I'm sorry to hear that. The team is tied up right now, but I'll make sure they call you back. Can I take your name?"  [TAKE MESSAGE]
+  PASS  no live transfer; says the team is tied up and asks for a name
+    caller: "Jo Smith"
+    ai:     "They'll call you back on the number you're calling from, ending 6 7 8. Is that right?"  [TAKE MESSAGE]
+  PASS  asks to confirm the callback number
+    caller: "Yes"
+    ai:     "Thanks Jo Smith, I've passed that on and the team will call you back within the hour. Thanks for calling!"  [TAKE MESSAGE]
+  PASS  message taken, caller told when to expect a call (park promise)
+  PASS  message record saved for staff
+  PASS  caller SMS acknowledgement + staff alert
+    caller: "Thanks"
+    ai:     "I've passed your message on and the team will be in touch. Thanks for calling!"
+  PASS  later turns do not create a second message
+
+[M2] different callback number (landline, so no SMS)
+    caller: "Can I speak to someone please?"
+    ai:     "The team is tied up right now, but I'll make sure they call you back. Can I take your name?"  [TAKE MESSAGE]
+    caller: "Pat Jones"
+    ai:     "They'll call you back on the number you're calling from, ending 6 7 8. Is that right?"  [TAKE MESSAGE]
+    caller: "No"
+    ai:     "What's the best number for them to call you back on?"  [TAKE MESSAGE]
+    caller: "02 9876 5432"
+    ai:     "Thanks Pat Jones, I've passed that on and the team will call you back within the hour. Thanks for calling!"  [TAKE MESSAGE]
+  PASS  callback number taken as given; no SMS to a landline
+
+[M3] full-service park, same complaint
+    caller: "This is terrible, I want to complain about my last stay"
+    ai:     "I'm sorry to hear that. Let me get one of our team to help you right away."  [LIVE TRANSFER]
+  PASS  live transfer to staff, no message flow
+
+[M4] booking request when the park has AI booking off
+    caller: "I want to book Site 12 for October 10th"
+    ai:     "Perfect, let me connect you with our team to confirm that."  [LIVE TRANSFER]
+  PASS  handoff-mode park still transfers booking requests (brief scenario 4)
+
+>>> messages: PASS (9/9 checks)
+
+==================== Multi-park routing and isolation ====================
+  PASS  lakeside is answered from its own availability (pet + 4 guests: sites 12, 5)
+  PASS  riverbend is answered from ITS sites (only site 1 fits)
+  PASS  no called_number -> default (first) park
+  PASS  unrecognised number -> safe fallback, never another park's data
+  PASS  park id travels in the response metadata
+  PASS  each park has its own NewBook client instance
+
+>>> parks: PASS (6/6 checks)
+
+==================== Usage ledger and monthly statement ($100/month + $3 per answered call) ====================
+    caller: "Any sites Oct 10 to 15?"
+    ai:     "Good news, we've got 5 sites for October 10th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Which one would you like me to book?"
+    caller: "Any sites Oct 10 to 15?"
+    ai:     "Good news, we've got 5 sites for October 10th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Which one would you like me to book?"
+    caller: "Hi, this is about your extended warranty"
+    ai:     "Thanks for calling, have a great day."
+    caller: "Any sites Oct 10 to 15?"
+    ai:     "Good news, we've got 5 sites for October 10th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Which one would you like me to book?"
+    caller: "Any sites Oct 10 to 15?"
+    ai:     "Good news, we've got 5 sites for October 10th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Which one would you like me to book?"
+  PASS  answered call of 90s is billable
+  PASS  call-ended is idempotent (not billed twice)
+  PASS  call-ended for an unknown number -> 404
+  PASS  idle finaliser closes calls whose end event never arrived
+  PASS  billable = answered b1 + idle-finalised b5 (2 calls)
+  PASS  total = $100 monthly + 2 x $3 = $106
+  PASS  not billed: abandoned (<15s), spam, test call
+  PASS  estimated durations are labelled as such on the statement
+  PASS  cost drivers recorded (Claude tokens per model)
+  PASS  another park's statement is separate: just the monthly fee
+  PASS  statement requires month=YYYY-MM
+
+>>> billing: PASS (11/11 checks)
+
+==================== Resilience: Claude down, SMS failure, suppression, payment-link failure, card numbers ====================
+
+[R1] Claude down at a diversion park
+    caller: "Any sites Oct 10 to 15?"
+    ai:     "Sorry, we're having a technical problem. I've noted your number and the team will call you back as soon as they can."  [TAKE MESSAGE]
+  PASS  no transfer into a busy office: takes a message path instead
+  PASS  message record + staff alert still created
+    caller: "Any sites Oct 10 to 15?"
+    ai:     "Our system is busy, let me transfer you to our team."  [LIVE TRANSFER]
+  PASS  full-service park falls back to the live transfer line
+
+[R2] payment-link SMS fails
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "I've held the site for you, but I couldn't send the text. I'll ask the team to send you the payment link."
+  PASS  hold stands, caller told the team will send the link, staff get the link
+  PASS  no reminder is sent for a link that was never delivered
+
+[R3] caller opted out of SMS
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "I've held the site for you, but I couldn't send the text. I'll ask the team to send you the payment link."
+  PASS  no SMS to an opted-out number; staff alerted instead
+
+[R4] payment provider cannot create a link
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "I'm having trouble with the booking system, so I'll get the team to call you back and finish this off. They'll call you back on the number you're calling from, ending 6 7 8. Is that right?"  [TAKE MESSAGE]
+  PASS  hold released, nothing left dangling, caller handed off
+
+[R5] caller reads out a card number
+    caller: "my card is 4242 4242 4242 4242, expiry 12/28"
+    ai:     "Please don't read out any card details. I'll text you a secure payment link instead. Where were we?"
+  PASS  card number never reaches Claude, state or logs
+  PASS  caller is told not to read out card details
+    caller: "my number is 0412 345 678 and we want 4 nights"
+    ai:     "When are you thinking of coming?"
+  PASS  ordinary phone numbers are not mistaken for cards
+
+>>> resilience: PASS (10/10 checks)
+
+==================== SUMMARY ====================
+PASS  booking
+PASS  holds
+PASS  payments
+PASS  safety
+PASS  messages
+PASS  parks
+PASS  billing
+PASS  resilience

@@ -22,9 +22,13 @@ Resources:
       CodeUri: .
       MemorySize: 512
       Timeout: 10   # the app enforces its own 2.8s per-turn budget (TURN_DEADLINE_MS)
+      # NOTE: in production the handler REFUSES to start until a durable (DynamoDB) store replaces
+      # the in-memory one (see lambda.js and state-store.js). Held bookings and the billing ledger
+      # must survive between Lambda containers.
       Environment:
         Variables:
           NODE_ENV: production          # disables /test-call
+          PARKS_CONFIG: parks.json      # per-park config shipped with the package (see parks.example.json)
           CLAUDE_MODE: live
           ANTHROPIC_SECRET_ARN: !Ref AnthropicSecretArn
           PARK_ID: !Ref ParkId
@@ -38,12 +42,48 @@ Resources:
             RestApiId: !Ref Api
             Path: /phone-callback
             Method: POST
+        CallEnded:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /call-ended
+            Method: POST
+        PaymentWebhook:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /payment-webhook
+            Method: POST
         Health:
           Type: Api
           Properties:
             RestApiId: !Ref Api
             Path: /health
             Method: GET
+
+  # Hold expiry + call finalisation. The /admin routes are deliberately NOT exposed through API
+  # Gateway; add an authenticated admin surface before letting parks change settings themselves.
+  JobsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs20.x
+      Handler: lambda.jobsHandler
+      CodeUri: .
+      MemorySize: 512
+      Timeout: 60
+      Environment:
+        Variables:
+          NODE_ENV: production
+          PARKS_CONFIG: parks.json
+          ANTHROPIC_SECRET_ARN: !Ref AnthropicSecretArn
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Ref AnthropicSecretArn
+      Events:
+        Every5Minutes:
+          Type: Schedule
+          Properties:
+            Schedule: rate(5 minutes)
 
   Api:
     Type: AWS::Serverless::Api

@@ -25,7 +25,7 @@ Reading availability is harmless. Creating a booking is a state change in the pa
 Names and emails are error-prone by voice: spell-back ("S-A-M, T-A-Y-L-O-R, correct?") and, for email, offer to **text a link to enter it** or take it from the SMS thread instead of speech. **[ASSUMPTION]**
 
 ## 4. Safeguards
-- **Autonomy levels, per park (config):**
+- **Booking mode, per park (config) [IMPLEMENTED as `booking_mode`]:** `handoff` (booking requests go to staff) or `ai_booking` (AI creates a held booking and sends the payment link; the booking is confirmed automatically when payment succeeds and staff are alerted at each step). The earlier L0/L1/L2 idea is superseded by this plus the payment step:
   - **L0:** current behaviour, always transfer.
   - **L1 (recommended start):** create the booking as *provisional/unconfirmed* (whatever status NewBook supports), notify staff, tell the caller "we've held it and the team will confirm"; unpaid holds expire after N hours.
   - **L2:** create as confirmed.

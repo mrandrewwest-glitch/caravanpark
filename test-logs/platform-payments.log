@@ -1,0 +1,73 @@
+OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook, SMS, payments, notifier: MOCK | pinned date: 2026-09-30
+
+==================== Payment webhook: signature, amounts, unknown bookings, late payments ====================
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  bad signature -> 401, booking stays held
+  PASS  tampered body with a valid old signature -> 401
+  PASS  event signed with another park's secret -> 401
+  PASS  unknown park -> 400
+  PASS  wrong amount is NOT confirmed; staff alerted
+  PASS  payment for an unknown booking alerts staff
+  PASS  hold expired and released first
+  PASS  late payment + site still free -> re-booked and confirmed
+    caller: "Hi, any sites Nov 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for November 10th to November 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 1 1 1. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, November 10th to November 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 1 1 1. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 1 1 1. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+    caller: "Hi, any sites Nov 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for November 10th to November 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Alex Lee"
+    ai:     "I'll text the payment link to the number you're calling from, ending 2 2 2. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, November 10th to November 15th, 4 guests with a pet, under the name Alex Lee. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 2 2 2. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 2 2 2. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  late payment + site taken -> refunded in full, original payer told
+  PASS  the other caller's booking is untouched
+  PASS  staff alerted about the refund
+
+[P-race] concurrency
+    caller: "Hi, any sites Dec 1 to 5 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for December 1st to December 5th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Casey Wu"
+    ai:     "I'll text the payment link to the number you're calling from, ending 3 3 3. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, December 1st to December 5th, 4 guests with a pet, under the name Casey Wu. The total is $740. I'll hold it for 45 minutes and text a secure payment link to the number ending 3 3 3. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 3 3 3. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  the same webhook delivered twice at once is processed once
+    caller: "Hi, any sites Dec 10 to 14 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for December 10th to December 14th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Drew Fox"
+    ai:     "I'll text the payment link to the number you're calling from, ending 4 4 4. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, December 10th to December 14th, 4 guests with a pet, under the name Drew Fox. The total is $740. I'll hold it for 45 minutes and text a secure payment link to the number ending 4 4 4. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 4 4 4. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  payment racing the expiry job ends consistent: paid, exactly one confirmed NewBook booking, no refund
+
+>>> payments: PASS (13/13 checks)
+
+==================== SUMMARY ====================
+PASS  payments

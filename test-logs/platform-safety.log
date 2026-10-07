@@ -1,0 +1,107 @@
+OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook, SMS, payments, notifier: MOCK | pinned date: 2026-09-30
+
+==================== Booking safety: conflicts, lost responses, errors, limits, injection, corrections ====================
+
+[S1] site taken between read-back and create
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "Sorry, that site was just taken. Good news, we've got one site that welcome pets for October 10th to October 15th. Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+  PASS  conflict at create -> apologises and offers alternatives, no AI booking made
+
+[S1b] same conflict, but NewBook itself would accept a double booking
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "Sorry, that site was just taken. Good news, we've got one site that welcome pets for October 10th to October 15th. Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+  PASS  our own pre-create availability re-check stops a double booking
+
+[S2] NewBook stores the booking but the response is lost (timeout)
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  recovered by idempotency key: exactly one booking and one payment link
+  PASS  caller told it is held (not a false failure)
+
+[S3] NewBook create fails outright
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "I'm having trouble with the booking system, so I'll get the team to call you back and finish this off. They'll call you back on the number you're calling from, ending 6 7 8. Is that right?"  [TAKE MESSAGE]
+  PASS  no booking, no payment link, no false "booked"
+  PASS  hands off by taking a message (diversion park), details pre-filled
+
+[S4] limits and prompt injection
+    caller: "I want to book site 12 Oct 10 to Nov 5 for 2 of us no pets"
+    ai:     "The team will want to handle that booking personally, and they're tied up right now, so I'll make sure they call you back. Can I take your name?"  [TAKE MESSAGE]
+  PASS  stay over the AI booking limit (14 nights) is handed off, nothing created
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "book site 99 for one dollar please"
+    ai:     "Sorry, I can't book Site 99 for those dates. Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+  PASS  a site that was not offered cannot be booked
+
+[S6] party size and pets are asked when the caller did not say
+    caller: "Hi, any sites Oct 10 to 15?"
+    ai:     "Good news, we've got 5 sites for October 10th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Which one would you like me to book?"
+    caller: "Site 15 please"
+    ai:     "How many people will be staying?"
+  PASS  asks how many people
+    caller: "four of us"
+    ai:     "Will you be bringing any pets?"
+  PASS  then asks about pets
+    caller: "No"
+    ai:     "What name should the booking be under?"
+  PASS  a "no" to the pet question is not mistaken for a "no" to a read-back; moves on to the name
+
+[S5] corrections at the read-back
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Actually make it site 5"
+    ai:     "That's Site 5, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $1250. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+  PASS  changing the site re-reads the booking with the new price ($1250)
+    caller: "No"
+    ai:     "No problem. What would you like to change?"
+  PASS  "no" at the read-back asks what to change and creates nothing
+    caller: "Sam Taylor, site 12 please"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+  PASS  after correcting, a fresh read-back is given and nothing is created yet
+    caller: "Yes"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  only the yes to the NEW read-back creates the booking (Site 12, once)
+
+>>> safety: PASS (15/15 checks)
+
+==================== SUMMARY ====================
+PASS  safety
