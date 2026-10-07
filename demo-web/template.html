@@ -94,6 +94,15 @@ header.top p { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
 .row input[type="text"] { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 9px 11px; font: inherit; }
 .tools { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 13px; color: var(--muted); }
 .tools label { display: inline-flex; gap: 6px; align-items: center; }
+.engine { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--surface-2); font-size: 13px; color: var(--muted); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: transparent; padding: 5px 10px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.seg button:disabled { opacity: 0.5; cursor: not-allowed; }
+.note { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.note b { font-weight: 600; }
+.src { display: inline-block; margin-left: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 6px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
+.thinking { align-self: flex-start; color: var(--muted); font-style: italic; font-size: 13.5px; padding: 4px 4px; }
 
 .sms { align-self: flex-start; max-width: 92%; background: var(--sms-in); border-radius: 14px; border-bottom-left-radius: 4px; padding: 9px 12px; overflow-wrap: anywhere; }
 .sms .meta { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; color: var(--muted); font-family: var(--f-mono); margin-bottom: 3px; }
@@ -177,6 +186,14 @@ footer.note p { margin: 0; }
   <main class="panels">
     <section class="panel" data-panel="call" aria-label="Call">
       <h2>The call <small id="callMode"></small></h2>
+      <div class="engine" id="engineRow">
+        <span>Understanding</span>
+        <span class="seg" role="group" aria-label="Who understands the caller">
+          <button type="button" id="engStub" aria-pressed="true">Stand-in</button>
+          <button type="button" id="engClaude" aria-pressed="false" disabled>Claude</button>
+        </span>
+        <span id="engNote">Rules-based and offline: follows the suggested replies.</span>
+      </div>
       <div class="scroll" id="chat" role="log" aria-live="polite"></div>
       <div class="composer">
         <div class="chips" id="chips" aria-label="Suggested replies"></div>
@@ -211,7 +228,7 @@ footer.note p { margin: 0; }
 
   <footer class="note">
     <div><h3>Real in this demo</h3><p>The booking engine: how it understands the caller, reads the booking back, holds the site, signs and checks the payment, expires unpaid holds, and works out the bill.</p></div>
-    <div><h3>Simulated here</h3><p>The park's booking system (NewBook), the text messages, the payment provider and the staff alerts. Understanding uses a simple rules-based stand-in that follows the suggested replies; the live version uses Claude.</p></div>
+    <div><h3>Simulated here</h3><p>The park's booking system (NewBook), the text messages, the payment provider and the staff alerts. Understanding uses a simple rules-based stand-in that follows the suggested replies, or Claude when you switch it on (it runs on your own Claude account and asks your permission first).</p></div>
     <div><h3>Call length and prices</h3><p>Call length is simulated at about 20 seconds per exchange. The bill shows example pricing: $100 a month plus $3 per answered call, before GST.</p></div>
   </footer>
 </div>
@@ -229,19 +246,22 @@ footer.note p { margin: 0; }
   var niceDate = function (iso) { return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'UTC' }); };
 
   var engine, chat, texts, alerts, snap, busy, ownerTab = 'bookings', settings = { mode: 'diversion', hold: 60 };
+  var sampleFn = null, wantClaude = false;
 
   function start() {
     texts = []; alerts = []; chat = []; snap = null; busy = false;
     engine = OnSiteEngine.createEngine({
-      mode: settings.mode, holdMinutes: settings.hold,
-      onEvent: function (e) { if (e.type === 'sms') texts.push(e); else alerts.push(e); },
+      mode: settings.mode, holdMinutes: settings.hold, sample: sampleFn,
+      onEvent: function (e) { if (e.type === 'sms') texts.push(e); else if (e.type === 'claude') onClaudeEvent(e); else alerts.push(e); },
     });
+    engine.setUseClaude(wantClaude);
     renderAll();
+    renderEngine();
     refreshOwner();
   }
 
   // ---- Call panel ----
-  function addChat(who, text, tags) { chat.push({ who: who, text: text, tags: tags || [] }); renderChat(); }
+  function addChat(who, text, tags, extra) { var m = { who: who, text: text, tags: tags || [] }; if (extra) for (var k in extra) m[k] = extra[k]; chat.push(m); renderChat(); }
   function renderChat() {
     var box = $('chat'); box.textContent = '';
     if (!chat.length) {
@@ -249,9 +269,13 @@ footer.note p { margin: 0; }
     }
     chat.forEach(function (m) {
       if (m.who === 'sys') { box.appendChild(el('div', 'sys', m.text)); return; }
+      if (m.who === 'thinking') { box.appendChild(el('div', 'thinking', 'OnSite is thinking...')); return; }
       var b = el('div', 'bubble ' + m.who);
-      b.appendChild(el('span', 'who', m.who === 'ai' ? 'OnSite' : 'Caller'));
+      var who = el('span', 'who', m.who === 'ai' ? 'OnSite' : 'Caller');
+      if (m.who === 'ai' && m.source) who.appendChild(el('span', 'src', m.source === 'claude' ? 'Claude' : m.source === 'mixed' ? 'Claude + stand-in' : 'Stand-in'));
+      b.appendChild(who);
       b.appendChild(document.createTextNode(m.text));
+      if (m.note) { var nt = el('span', 'note'); nt.appendChild(el('b', '', 'Understood: ')); nt.appendChild(document.createTextNode(m.note)); b.appendChild(nt); }
       if (m.tags.length) { var wrap = el('div'); m.tags.forEach(function (t) { wrap.appendChild(el('span', 'tag ' + t.kind, t.label)); }); b.appendChild(wrap); }
       box.appendChild(b);
     });
@@ -281,21 +305,42 @@ footer.note p { margin: 0; }
       box.appendChild(b);
     });
   }
-  function setBusy(v) { busy = v; $('sendBtn').disabled = v; $('say').disabled = v; ['sc-book', 'sc-expire', 'sc-busy', 'newCall', 'ff15', 'ff60', 'reset'].forEach(function (id) { $(id).disabled = v; }); renderChips(); renderTexts(); }
+  function setBusy(v) { busy = v; $('sendBtn').disabled = v; $('say').disabled = v; ['sc-book', 'sc-expire', 'sc-busy', 'newCall', 'ff15', 'ff60', 'reset', 'engStub'].forEach(function (id) { $(id).disabled = v; }); $('engClaude').disabled = v || !(engine && engine.claudeAvailable); renderChips(); renderTexts(); }
+
+  function understood(ex) {
+    if (!ex) return '';
+    var p = [];
+    if (ex.check_in_date) p.push(niceDate(ex.check_in_date) + (ex.check_out_date ? ' to ' + niceDate(ex.check_out_date) : ''));
+    if (ex.num_guests) p.push(ex.num_guests + ' guests');
+    if (ex.has_pet === true) p.push('with a pet'); else if (ex.has_pet === false) p.push('no pets');
+    if (ex.vehicle_type) p.push(ex.vehicle_type);
+    if (ex.chosen_site_id) p.push('Site ' + ex.chosen_site_id);
+    if (ex.guest_name) p.push('name ' + ex.guest_name);
+    if (ex.confirmation) p.push('said ' + ex.confirmation);
+    var intent = { booking: 'wants to book', complaint: 'unhappy', special_needs: 'special needs', out_of_scope: 'outside what OnSite handles', spam: 'spam' }[ex.intent];
+    if (intent) p.push(intent);
+    if (ex.wants_human) p.push('asked for a person');
+    return p.join(' · ');
+  }
+  function removeThinking() { chat = chat.filter(function (m) { return m.who !== 'thinking'; }); }
 
   async function say(text) {
     text = String(text || '').trim(); if (!text) return;
     setBusy(true);
     addChat('caller', text);
+    if (engine.useClaude) addChat('thinking', '');
     try {
       var r = await engine.say(text);
+      removeThinking();
+      var caller = chat.filter(function (m) { return m.who === 'caller'; }).slice(-1)[0];
+      if (caller) caller.note = understood(r.understood);
       var tags = [];
       if (r.transfer) tags.push({ kind: 'bad', label: 'Transferred to a staff member' });
       if (r.handoff && r.handoff.strategy === 'take_message') tags.push({ kind: 'warn', label: 'Taking a message for the team' });
       if (r.booking) tags.push({ kind: 'ok', label: 'Booking ' + r.booking.ref + ' held, awaiting payment' });
-      addChat('ai', r.text, tags);
+      addChat('ai', r.text, tags, { source: r.source });
       speak(r.text);
-    } catch (e) { addChat('sys', 'Something went wrong in the demo: ' + e.message); }
+    } catch (e) { removeThinking(); addChat('sys', 'Something went wrong in the demo: ' + e.message); }
     $('say').value = '';
     await refreshOwner();
     setBusy(false);
@@ -318,6 +363,30 @@ footer.note p { margin: 0; }
     addChat('sys', (minutes >= 60 ? (minutes / 60) + ' hour' + (minutes > 60 ? 's' : '') : minutes + ' minutes') + ' later' + (h.released.length ? ': unpaid hold released' : h.reminded.length ? ': reminder text sent' : ''));
     await refreshOwner();
     setBusy(false);
+  }
+
+  // ---- Who understands the caller: the stand-in, or Claude (on the viewer's own Claude account) ----
+  var CLAUDE_REASONS = { not_granted: 'permission was not given', sampling_disabled: 'Claude is not available for this account', session_expired: 'you need to sign in again', rate_limited: 'Claude is busy or your usage limit was reached', upstream_error: 'Claude could not be reached', invalid_json: 'Claude gave an answer the demo could not read', empty_completion: 'Claude gave no answer', refused: 'Claude declined that message' };
+  function onClaudeEvent(e) {
+    var why = CLAUDE_REASONS[e.code] || 'it did not work here';
+    if (e.status === 'off') { wantClaude = false; addChat('sys', 'Claude is off (' + why + '). The stand-in is answering instead.'); renderEngine(); }
+    else addChat('sys', 'Claude did not answer that one (' + why + '), so the stand-in did.');
+  }
+  function renderEngine() {
+    var avail = engine && engine.claudeAvailable;
+    var on = engine && engine.useClaude;
+    $('engClaude').disabled = !avail;
+    $('engStub').setAttribute('aria-pressed', on ? 'false' : 'true');
+    $('engClaude').setAttribute('aria-pressed', on ? 'true' : 'false');
+    $('engNote').textContent = on ? 'Claude reads each thing the caller says, using your own Claude usage. Type anything.'
+      : avail ? 'Rules-based and offline: follows the suggested replies. Switch to Claude to type freely.'
+      : sampleFn === null && window.claude ? 'Looking for Claude...' : 'Rules-based and offline: follows the suggested replies. Claude is available when this page is opened from the shared link while signed in to Claude.';
+    $('say').placeholder = on ? 'Say anything, e.g. "2 kids, a labrador, 4 nights from 1 Nov"' : 'Type what the caller says...';
+  }
+  $('engClaude').addEventListener('click', function () { wantClaude = true; engine.setUseClaude(true); renderEngine(); addChat('sys', 'Claude is on. Your browser may ask for permission the first time.'); });
+  $('engStub').addEventListener('click', function () { wantClaude = false; engine.setUseClaude(false); renderEngine(); addChat('sys', 'Back to the offline stand-in.'); });
+  if (window.claude && typeof window.claude.use === 'function') {
+    window.claude.use('sample').then(function (fn) { if (fn) { sampleFn = fn; if (engine) { engine.attachSample(fn); renderEngine(); } } else { sampleFn = false; if (engine) renderEngine(); } }).catch(function () { sampleFn = false; if (engine) renderEngine(); });
   }
 
   // ---- Scripted scenarios ----

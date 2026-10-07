@@ -26,6 +26,8 @@ Pricing model (decided): **$100/month + $3 per answered call**, no commission. P
 
 `demo-web/OnSite-demo.html` is a single page you can open in any browser (double-click it) or host anywhere. It has a phone-style call panel with suggested replies, the caller's texts (with a working **Pay** button), and the park owner's view (bookings, alerts, the bill, settings), plus one-click scenarios: *book a site and pay*, *caller never pays* and *unhappy caller, staff busy*. It runs the **real engine** (bundled for the browser with esbuild) against simulated NewBook, texts and payments; nothing is sent.
 
+**Claude in the browser demo.** When the page is opened from its shared link while signed in to Claude, an *Understanding: Stand-in / Claude* switch appears. Switched to Claude, each thing the caller says is understood by Claude (the same prompts and the same checks as the server: `claude-prompts.js`), so you can type freely instead of using the suggested replies. It goes through the page's `sample` capability, which runs on the **viewer's own Claude account** and asks their permission the first time, so the page holds no API key. If Claude is declined, unavailable or fails, the demo falls back to the offline stand-in and says so. Under each caller message the page shows what was understood (dates, guests, pet, intent), and each reply is labelled *Claude*, *Stand-in* or *Claude + stand-in*. The demo waits as long as Claude needs; a real phone call has about 3 seconds.
+
 ```bash
 npm run demo:web        # rebuild demo-web/OnSite-demo.html from demo-web/template.html + the engine
 npm run test:demo-web   # engine bundle, browser crypto shim and page rules
@@ -87,7 +89,7 @@ Environment: `STORE_BACKEND` (`memory` default | `dynamodb`), `DYNAMODB_TABLE`, 
 ## Tests
 
 ```bash
-npm test                      # everything below, in-memory store + mock NewBook (317 checks)
+npm test                      # everything below, in-memory store + mock NewBook (332 checks)
 npm run test:dynamo           # the same suites with every store operation going to DynamoDB (dynalite), 230 checks
 npm run test:scenario-1       # brief scenarios 1-4: availability / clarification / pet-friendly / escalation
 npm run test:extra            # multi-turn, failures, timeout, concurrency, Lambda wrapper, live-client parsing
@@ -195,7 +197,7 @@ Prints a PASS/FAIL checklist for each assumption and exits non-zero on any failu
 
 ## Files
 
-`demo.js` terminal demo · `demo-web/` browser demo (`template.html`, `engine-entry.js`, shims) built by `scripts/build-demo-web.js` · `tests-demo-web.js` · `index.js` wiring/server · `lambda.js` Lambda entry (+ jobs) · `dialpad-handler.js` webhooks · `conversation-logic.js` routing, escalation, deadline · `booking-flow.js` booking + message-taking · `payment-handler.js` · `jobs.js` hold expiry · `ledger.js` usage/billing · `parks.js` multi-park registry · `messages.js` wording · `comms.js` · `claude-client.js` live · `claude-stub.js` offline · `newbook-rest-client.js` real NewBook client · `secrets.js` · `scripts/newbook-probe.js` · `test-newbook-server.js` fake NewBook · `newbook-client.js` (mock), `sms-provider.js`, `payment-provider.js`, `notifier.js` mocks · `state-store.js` (interface + in-memory) · `dynamo-store.js` · `repos.js` keys/retention/indexes · `redact.js` · `util.js` · `dates.js` · `admin.js` · `tests.js`, `tests-platform.js`, `tests-store.js`, `test-helpers.js`, `test-dynamo.js` · `sam.yaml` · `parks.example.json` · `test-logs/`
+`demo.js` terminal demo · `demo-web/` browser demo (`template.html`, `engine-entry.js`, shims) built by `scripts/build-demo-web.js` · `tests-demo-web.js` · `index.js` wiring/server · `lambda.js` Lambda entry (+ jobs) · `dialpad-handler.js` webhooks · `conversation-logic.js` routing, escalation, deadline · `booking-flow.js` booking + message-taking · `payment-handler.js` · `jobs.js` hold expiry · `ledger.js` usage/billing · `parks.js` multi-park registry · `messages.js` wording · `comms.js` · `claude-prompts.js` shared prompts and parsing · `claude-client.js` live · `claude-stub.js` offline · `newbook-rest-client.js` real NewBook client · `secrets.js` · `scripts/newbook-probe.js` · `test-newbook-server.js` fake NewBook · `newbook-client.js` (mock), `sms-provider.js`, `payment-provider.js`, `notifier.js` mocks · `state-store.js` (interface + in-memory) · `dynamo-store.js` · `repos.js` keys/retention/indexes · `redact.js` · `util.js` · `dates.js` · `admin.js` · `tests.js`, `tests-platform.js`, `tests-store.js`, `test-helpers.js`, `test-dynamo.js` · `sam.yaml` · `parks.example.json` · `test-logs/`
 
 ## Test logs (stub Claude, all providers mocked)
 
