@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node index.js",
-    "test": "node tests.js all && node tests-platform.js all && node tests-store.js all",
+    "test": "node tests.js all && node tests-platform.js all && node tests-store.js all && node tests-newbook.js all",
     "test:scenario-1": "node tests.js 1",
     "test:scenario-2": "node tests.js 2",
     "test:scenario-3": "node tests.js 3",
@@ -26,7 +26,10 @@
     "test:resilience": "node tests-platform.js resilience",
     "test:store": "node tests-store.js all",
     "test:dynamo": "STORE=dynamo node tests.js all && STORE=dynamo node tests-platform.js all && node tests-store.js all",
-    "test:containers": "node tests-platform.js containers"
+    "test:containers": "node tests-platform.js containers",
+    "test:newbook": "node tests-newbook.js all",
+    "test:rest": "NEWBOOK=rest node tests.js all && NEWBOOK=rest node tests-platform.js all",
+    "test:all-backends": "npm test && npm run test:rest && STORE=dynamo NEWBOOK=rest node tests.js all && STORE=dynamo NEWBOOK=rest node tests-platform.js all && npm run test:dynamo"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",

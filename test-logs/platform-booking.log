@@ -1,4 +1,4 @@
-OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook, SMS, payments, notifier: MOCK | store: in-memory | pinned date: 2026-09-30
+OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | SMS, payments, notifier: MOCK | store: in-memory | newbook: in-process mock | pinned date: 2026-09-30
 
 ==================== AI booking: availability -> read-back -> held booking -> SMS payment link -> paid -> confirmed ====================
     caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"

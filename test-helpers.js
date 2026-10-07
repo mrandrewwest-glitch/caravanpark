@@ -3,6 +3,8 @@
 process.env.LOG_LEVEL = process.env.LOG_LEVEL || 'silent';
 const { createApp } = require('./index');
 const { newDynamoStore } = require('./test-dynamo');
+const { createFakeNewBook, harnessFor, categoriesFromSites, AUTH } = require('./test-newbook-server');
+const { MOCK_SITES } = require('./newbook-client');
 
 const TODAY = process.env.TEST_TODAY || '2026-09-30'; // pinned so "next weekend" is deterministic (a Wednesday)
 const BUDGET_MS = 3000;
@@ -31,13 +33,31 @@ function makeClock(startIso = '2026-09-30T00:00:00Z') {
   return c;
 }
 
+// NEWBOOK=rest runs the suites through the REAL REST client against a fake NewBook HTTP server
+// (one per park, built from NewBook's public docs) instead of the in-process mock.
+const REST = process.env.NEWBOOK === 'rest';
+async function restParks() {
+  process.env.ONSITE_TEST_NEWBOOK_CREDS = JSON.stringify(AUTH);
+  const fakes = {};
+  const parks = [];
+  for (const p of TEST_PARKS) {
+    const fake = createFakeNewBook({ categories: categoriesFromSites((p.newbook && p.newbook.sites) || MOCK_SITES) });
+    const base_url = await fake.start();
+    fakes[p.id] = fake;
+    parks.push({ ...p, newbook: { type: 'rest', base_url, credentials_ref: 'env:ONSITE_TEST_NEWBOOK_CREDS', placeholder_address: { street: '1 Park Road', city: 'Testville', postcode: '2000', state: 'NSW' }, payment_type_name: 'Credit Card', cancel_reason_name: 'Unpaid hold', read_timeout_ms: 800, write_timeout_ms: 1200 } });
+  }
+  return { fakes, parks };
+}
+
 async function start(overrides = {}) {
+  const useRest = REST && !overrides.newbook && !overrides.newbooks && !overrides.parks;
+  const rest = useRest ? await restParks() : null;
   const clock = overrides.clock || makeClock();
   // STORE=dynamo runs the whole suite against DynamoDB (dynalite) instead of the in-memory store.
   const store = overrides.store || (process.env.STORE === 'dynamo' ? await newDynamoStore({ now: () => clock.t }) : undefined);
   const app = createApp({
     store,
-    parks: TEST_PARKS, parkCacheMs: 0, today: () => TODAY, now: () => clock.t, enableTestEndpoint: true,
+    parks: rest ? rest.parks : TEST_PARKS, parkCacheMs: 0, today: () => TODAY, now: () => clock.t, enableTestEndpoint: true,
     ...overrides, config: { adminToken: 'test-admin', ...overrides.config },
   });
   const server = await new Promise((resolve) => { const s = app.listen(0, () => resolve(s)); });
@@ -52,15 +72,16 @@ async function start(overrides = {}) {
   };
   const deps = app.deps;
   const firstPark = await deps.registry.get(deps.registry.ids()[0]);
+  const harnesses = rest ? Object.fromEntries(Object.entries(rest.fakes).map(([id, f]) => [id, harnessFor(f)])) : null;
   return {
     app, deps, clock, request,
     post: (path, body, headers) => request('POST', path, body, headers),
     admin: (method, path, body) => request(method, `/admin${path}`, body, { authorization: 'Bearer test-admin' }),
-    newbook: deps.providers.newbook(firstPark),
-    nb: async (parkId) => deps.providers.newbook(await deps.registry.get(parkId)),
+    newbook: harnesses ? harnesses[firstPark.id] : deps.providers.newbook(firstPark),
+    nb: async (parkId) => (harnesses ? harnesses[parkId] : deps.providers.newbook(await deps.registry.get(parkId))),
     pay: async (parkId) => deps.providers.payments(await deps.registry.get(parkId)),
     sms: deps.sms, notifier: deps.notifier,
-    close: () => new Promise((r) => server.close(r)),
+    close: async () => { await new Promise((r) => server.close(r)); if (rest) await Promise.all(Object.values(rest.fakes).map((f) => f.stop())); },
   };
 }
 
@@ -86,4 +107,4 @@ function makeChecker() {
   return { check, results };
 }
 
-module.exports = { STORE_NAME: process.env.STORE === 'dynamo' ? 'DynamoDB (dynalite)' : 'in-memory', start, call, printFlow, makeChecker, makeClock, TODAY, BUDGET_MS, TEST_PARKS, NUMBERS, RIVER_SITES };
+module.exports = { STORE_NAME: process.env.STORE === 'dynamo' ? 'DynamoDB (dynalite)' : 'in-memory', NEWBOOK_NAME: REST ? 'REST client + fake NewBook server' : 'in-process mock', start, call, printFlow, makeChecker, makeClock, TODAY, BUDGET_MS, TEST_PARKS, NUMBERS, RIVER_SITES };

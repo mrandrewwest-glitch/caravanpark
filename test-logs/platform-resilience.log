@@ -1,4 +1,4 @@
-OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook, SMS, payments, notifier: MOCK | store: in-memory | pinned date: 2026-09-30
+OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | SMS, payments, notifier: MOCK | store: in-memory | newbook: in-process mock | pinned date: 2026-09-30
 
 ==================== Resilience: Claude down, SMS failure, suppression, payment-link failure, card numbers ====================
 

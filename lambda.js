@@ -27,7 +27,9 @@ async function getApp() {
       throw new Error('Durable store required: set STORE_BACKEND=dynamodb and DYNAMODB_TABLE (the in-memory store loses bookings between Lambda containers). ALLOW_MEMORY_STORE=true is for throwaway tests only.');
     }
     await loadSecrets();
-    cachedApp = createApp();
+    const app = createApp();
+    await app.deps.validateProviders(); // fail the cold start loudly rather than mis-handle live bookings
+    cachedApp = app;
   }
   return cachedApp;
 }

@@ -1,0 +1,26 @@
+[
+  {
+    "id": "friend-caravan-park",
+    "name": "Friends Caravan Park",
+    "timezone": "Australia/Sydney",
+    "numbers": ["+61290000001"],
+    "sms_from": "+61290000001",
+    "mode": "diversion",
+    "booking_mode": "ai_booking",
+    "hold_minutes": 60,
+    "deposit_percent": 100,
+    "staff": { "alert_numbers": ["+61400000000"], "alert_emails": ["owner@example.com"], "callback_promise": "within the hour" },
+    "newbook": {
+      "type": "rest",
+      "base_url": "https://testapi.newbook.cloud/rest",
+      "credentials_ref": "env:NEWBOOK_FRIEND_CREDS",
+      "unit_mode": "category",
+      "hold_status": "Unconfirmed",
+      "placeholder_address": { "street": "1 Park Road", "city": "Townsville", "postcode": "2000", "state": "NSW", "country": "Australia" },
+      "payment_type_name": "Credit Card",
+      "cancel_reason_name": "Unpaid hold",
+      "default_adults": 2
+    },
+    "payments": { "type": "mock", "webhook_secret": "replace-me" }
+  }
+]

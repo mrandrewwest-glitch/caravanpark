@@ -4,7 +4,7 @@
 // multi-park routing, billing ledger, resilience. All providers are mocks; no network.
 // Usage: node tests-platform.js <booking|holds|payments|safety|messages|parks|billing|resilience|all>
 
-const { start, makeChecker, makeClock, NUMBERS, STORE_NAME } = require('./test-helpers');
+const { start, makeChecker, makeClock, NUMBERS, STORE_NAME, NEWBOOK_NAME } = require('./test-helpers');
 const { createClaudeClient } = require('./claude-client');
 const { newDynamoStore } = require('./test-dynamo');
 const { createMockNewBookClient } = require('./newbook-client');
@@ -224,6 +224,7 @@ const suites = {
       r = await book(env, { sid: 's3' });
       check('no booking, no payment link, no false "booked"', nb.bookings.size === 0 && (await env.pay('lakeside')).links.length === 0 && !/all done/i.test(r[4].body.response_text));
       check('hands off by taking a message (diversion park), details pre-filled', r[4].body.handoff && r[4].body.handoff.strategy === 'take_message' && r[4].body.transfer_to_human === false);
+      check('staff are told the outcome is unknown so nobody re-books blindly', alertKinds(env).includes('booking_outcome_unknown'));
       await env.close();
 
       env = await start();
@@ -246,6 +247,15 @@ const suites = {
       check('then asks about pets', /pets/i.test(q.body.response_text));
       q = await say(env, 's6', 'No');
       check('a "no" to the pet question is not mistaken for a "no" to a read-back; moves on to the name', /what name/i.test(q.body.response_text));
+      await env.close();
+
+      env = await start();
+      nb = await env.nb('lakeside');
+      console.log('\n[S7] NewBook prices the booking differently from the read-back quote');
+      nb.totalDelta = 40;
+      r = await book(env, { sid: 's7' });
+      check('hold released, no payment link, caller handed off, staff told why', [...nb.bookings.values()].every((x) => x.status === 'released') && (await env.pay('lakeside')).links.length === 0 && r[4].body.handoff && alertKinds(env).includes('booking_price_mismatch'));
+      check('the caller is not told the booking is held', !/all done/i.test(r[4].body.response_text));
       await env.close();
 
       env = await start();
@@ -461,7 +471,7 @@ async function main() {
   const arg = process.argv[2] || 'all';
   const keys = arg === 'all' ? Object.keys(suites) : [arg];
   if (keys.some((k) => !suites[k])) { console.error(`Unknown suite "${arg}". Use ${Object.keys(suites).join(', ')} or all.`); process.exit(2); }
-  console.log(`OnSite platform tests | claude client: ${createClaudeClient().mode.toUpperCase()}${createClaudeClient().mode === 'stub' ? ' (offline rule-based stand-in, NOT Claude)' : ''} | NewBook, SMS, payments, notifier: MOCK | store: ${STORE_NAME} | pinned date: 2026-09-30`);
+  console.log(`OnSite platform tests | claude client: ${createClaudeClient().mode.toUpperCase()}${createClaudeClient().mode === 'stub' ? ' (offline rule-based stand-in, NOT Claude)' : ''} | SMS, payments, notifier: MOCK | store: ${STORE_NAME} | newbook: ${NEWBOOK_NAME} | pinned date: 2026-09-30`);
   const all = [];
   for (const k of keys) {
     const s = suites[k];

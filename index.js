@@ -7,6 +7,8 @@ const { handlePaymentWebhook } = require('./payment-handler');
 const { adminRouter } = require('./admin');
 const { createClaudeClient } = require('./claude-client');
 const { createMockNewBookClient } = require('./newbook-client');
+const { createNewBookRestClient, validateRestConfig } = require('./newbook-rest-client');
+const { loadJsonSecret } = require('./secrets');
 const { createMockSmsProvider } = require('./sms-provider');
 const { createMockPaymentProvider } = require('./payment-provider');
 const { createMockNotifier } = require('./notifier');
@@ -43,7 +45,12 @@ function buildDeps(overrides = {}) {
   // Real providers read per-park credentials from Secrets Manager here.
   const providers = {
     newbook(park) {
-      if (!newbooks[park.id]) newbooks[park.id] = createMockNewBookClient({ parkName: park.name, ...(park.newbook && park.newbook.sites ? { sites: park.newbook.sites } : {}) });
+      if (!newbooks[park.id]) {
+        const nb = park.newbook || { type: 'mock' };
+        newbooks[park.id] = nb.type === 'rest'
+          ? createNewBookRestClient({ parkName: park.name, timezone: park.timezone, config: nb, getCredentials: () => loadJsonSecret(nb.credentials_ref), now, logger })
+          : createMockNewBookClient({ parkName: park.name, ...(nb.sites ? { sites: nb.sites } : {}) });
+      }
       return newbooks[park.id];
     },
     payments(park) {
@@ -52,7 +59,21 @@ function buildDeps(overrides = {}) {
     },
   };
 
+  // Refuse to run with a real-NewBook park that is missing settings AI booking depends on.
+  async function validateProviders() {
+    for (const id of registry.ids()) {
+      const park = await registry.get(id);
+      if (park.newbook && park.newbook.type === 'rest') {
+        const errors = validateRestConfig(park.newbook, { forBooking: park.booking_mode === 'ai_booking' });
+        if (errors.length) throw new Error(`Park ${id} NewBook config: ${errors.join('; ')}`);
+        // Best effort: a NewBook outage at cold start must not stop the app; the first call just pays for it.
+        try { await providers.newbook(park).warm(); } catch (err) { logger.warn('newbook_warm_failed', { park_id: id, error: err.message }); }
+      }
+    }
+  }
+
   return {
+    validateProviders,
     claude: overrides.claude || createClaudeClient(),
     store,
     logger,
@@ -108,7 +129,7 @@ function createApp(overrides = {}) {
 if (require.main === module) {
   const app = createApp();
   const port = Number(process.env.PORT) || 3000;
-  app.listen(port, () => app.deps.logger.info('listening', { port, claude_mode: app.deps.claude.mode }));
+  app.deps.validateProviders().then(() => app.listen(port, () => app.deps.logger.info('listening', { port, claude_mode: app.deps.claude.mode }))).catch((err) => { console.error(err.message); process.exit(1); });
 }
 
 module.exports = { createApp, buildDeps, makeStore };

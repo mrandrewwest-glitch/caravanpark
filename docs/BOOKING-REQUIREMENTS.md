@@ -15,7 +15,7 @@ Reading availability is harmless. Creating a booking is a state change in the pa
 `enquiry → site_chosen → collecting_details → readback → confirmed_by_caller → creating → created | failed`
 
 1. Availability shown (existing flow); caller picks a site ("Site 12, please").
-2. Collect required guest details: full name, mobile (default to caller ID, confirm it), email if NewBook requires it, vehicle length/type, number of adults/children, pets. **[ASSUMPTION]** exact required fields come from NewBook's API docs.
+2. Collect required guest details: full name, mobile (default to caller ID, confirm it), number of guests, pets (vehicle length/type later). NewBook's `bookings_create` also requires a guest **address** (street, city, postcode) plus phone or email, which phone callers are not asked for: **decision needed** between a park-configured placeholder address with the real one collected at check-in (what the client does now) or asking for suburb/postcode/street by voice (more turns, more mishearing).
 3. **Read-back:** "That's Site 12, October 10th to 15th, 4 guests, a dog, in the name of Sam Taylor, total $925. Shall I book that?" Totals come from NewBook, never computed by the LLM.
 4. Only an explicit affirmative to the read-back moves to `creating`. Anything else loops back to correct the details.
 5. **Re-check availability immediately before create**; if the site was taken, offer alternatives rather than failing silently.

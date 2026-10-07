@@ -1,4 +1,4 @@
-OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook, SMS, payments, notifier: MOCK | store: in-memory | pinned date: 2026-09-30
+OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | SMS, payments, notifier: MOCK | store: in-memory | newbook: in-process mock | pinned date: 2026-09-30
 
 ==================== Booking safety: conflicts, lost responses, errors, limits, injection, corrections ====================
 
@@ -55,6 +55,7 @@ OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Cl
     ai:     "I'm having trouble with the booking system, so I'll get the team to call you back and finish this off. They'll call you back on the number you're calling from, ending 6 7 8. Is that right?"  [TAKE MESSAGE]
   PASS  no booking, no payment link, no false "booked"
   PASS  hands off by taking a message (diversion park), details pre-filled
+  PASS  staff are told the outcome is unknown so nobody re-books blindly
 
 [S4] limits and prompt injection
     caller: "I want to book site 12 Oct 10 to Nov 5 for 2 of us no pets"
@@ -79,6 +80,20 @@ OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Cl
     ai:     "What name should the booking be under?"
   PASS  a "no" to the pet question is not mistaken for a "no" to a read-back; moves on to the name
 
+[S7] NewBook prices the booking differently from the read-back quote
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "I'm having trouble with the booking system, so I'll get the team to call you back and finish this off. They'll call you back on the number you're calling from, ending 6 7 8. Is that right?"  [TAKE MESSAGE]
+  PASS  hold released, no payment link, caller handed off, staff told why
+  PASS  the caller is not told the booking is held
+
 [S5] corrections at the read-back
     caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
     ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
@@ -101,7 +116,7 @@ OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Cl
     ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
   PASS  only the yes to the NEW read-back creates the booking (Site 12, once)
 
->>> safety: PASS (15/15 checks)
+>>> safety: PASS (18/18 checks)
 
 ==================== SUMMARY ====================
 PASS  safety

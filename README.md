@@ -2,7 +2,7 @@
 
 Multi-park service that answers a park's calls (when the owners are busy, or all the time), answers questions from live availability, **creates a held booking in NewBook, texts the caller a secure payment link, and confirms the booking when it's paid**. When it can't or shouldn't handle something it either **live-transfers** to staff or **takes a message**, depending on the park's mode.
 
-**Status: mock-first build with a production-shaped DynamoDB store.** Everything below runs and is tested end to end, but against **mock** NewBook, SMS, payment and staff-notification providers, and (without an API key) an **offline stand-in for Claude**. The DynamoDB store is tested against a DynamoDB-compatible emulator (`dynalite`), **not against real AWS**. Nothing talks to real Dialpad, NewBook, an SMS provider, a payment provider or AWS yet. See [What's not built yet](#whats-not-built-yet).
+**Status: mock-first build with a production-shaped DynamoDB store and a real NewBook REST client (not yet run against a real NewBook).** Everything below runs and is tested end to end, but against **mock** NewBook, SMS, payment and staff-notification providers, and (without an API key) an **offline stand-in for Claude**. The DynamoDB store is tested against a DynamoDB-compatible emulator (`dynalite`), **not against real AWS**. Nothing talks to real Dialpad, NewBook, an SMS provider, a payment provider or AWS yet. See [What's not built yet](#whats-not-built-yet).
 
 > **About the test logs:** they were produced with the **offline stub Claude client** (`claude-stub.js`, rule-based) because no `ANTHROPIC_API_KEY` was available where this was built. They prove the connector logic: booking state machine, payments, expiry, handoffs, billing, multi-park isolation, resilience. They do **not** show real Claude extraction quality or reply wording. Run with your key to see live behaviour (`ANTHROPIC_API_KEY=... npm test`); the live client itself is only covered by a fake-SDK test.
 
@@ -65,11 +65,14 @@ Environment: `STORE_BACKEND` (`memory` default | `dynamodb`), `DYNAMODB_TABLE`, 
 ## Tests
 
 ```bash
-npm test                      # everything below, in-memory store (220 checks)
-npm run test:dynamo           # the same suites with every store operation going to DynamoDB (dynalite), 220 checks
+npm test                      # everything below, in-memory store + mock NewBook (287 checks)
+npm run test:dynamo           # the same suites with every store operation going to DynamoDB (dynalite), 223 checks
 npm run test:scenario-1       # brief scenarios 1-4: availability / clarification / pet-friendly / escalation
 npm run test:extra            # multi-turn, failures, timeout, concurrency, Lambda wrapper, live-client parsing
 npm run test:platform         # booking, holds, payments, safety, messages, parks, billing, resilience
+npm run test:newbook          # NewBook REST client against a fake NewBook server (protocol, mapping, bookings, config, probe script)
+npm run test:rest             # the scenario + platform suites with every NewBook call going through the REST client (149 checks)
+npm run test:all-backends     # every combination: memory/DynamoDB store x mock/REST NewBook
 npm run test:booking          # (also :holds :payments :safety :messages :parks :billing :resilience :containers)
 npm run test:store            # store contract (memory vs DynamoDB), DynamoDB contention/multi-container/leases, repos, sam.yaml drift
 ```
@@ -108,30 +111,73 @@ NewBook offers two APIs. From its developer documentation ([REST](https://develo
 
 | | REST API | OTA API |
 |---|---|---|
-| Format / auth | JSON over HTTPS; HTTP Basic (username/password) plus `region` and `api_key` in the request | OpenTravel XML/SOAP-style; Oasis **WSSE** header plus an instance token |
-| Reads availability | `pull_availability` | `OTA_HotelAvailRQ` |
-| Creates bookings | `bookings_create`; supports Quote and Waitlist statuses as well as Confirmed | `OTA_HotelResNotifRQ` |
-| Payments | `payments_create`, `charges_create`, `credits_create` | **None** (reservations and availability/rates only) |
+| Format / auth | JSON over HTTPS; HTTP Basic (username/password) plus `region` and `api_key` in the request body | OpenTravel XML/SOAP-style; Oasis **WSSE** header plus an instance token |
+| Reads availability | `bookings_availability_pricing` | `OTA_HotelAvailRQ` |
+| Creates bookings | `bookings_create`; statuses include Quote, Unconfirmed, Confirmed | `OTA_HotelResNotifRQ` |
+| Payments | `payments_create`, `payments_list`, `payment_types` | **None** (reservations and availability/rates only) |
 | Built for | Developers/integrators building apps for properties | Channel managers, OTAs, booking sites |
-| Limits | Throttled after 100 requests/minute; paginated lists | n/a in the docs |
-| Access | Credentials issued by NewBook Support, chosen at registration | Same registration, choose OTA |
+| Limits | 100 requests/minute; test endpoint `testapi.newbook.cloud` | n/a |
 
-OnSite needs booking creation **and** payment posting, which only the REST API offers, so **REST is the right choice**. The brief's "WSSE" detail comes from the OTA API and does not apply. Things to confirm with NewBook Support when requesting credentials (not verified; the docs are very large and only the start was read): how to hold a booking until payment (Quote status and its expiry), the update call that turns a Quote into Confirmed, how `pull_availability` maps to *sites* versus tariffs (site-level availability may need special registration), whether booking requests can carry an idempotency key or reference we can search by, and a sandbox instance. The mock `newbook-client.js` deliberately mirrors the five operations the real client must provide.
+OnSite needs booking creation **and** payment posting, which only the REST API offers, so **REST is the right choice**. The brief's "WSSE" detail belongs to the OTA API and does not apply.
+
+### The client (`newbook-rest-client.js`)
+
+A real client with the same operations as the mock: `getAvailability`, `quote`, `createBooking`, `findBookingByKey`, `confirmBooking`, `releaseBooking`, `getBooking`. Select it per park with `"newbook": {"type": "rest", ...}` (see `parks.newbook-rest.example.json`); credentials are a *reference* (`env:NAME` or a Secrets Manager ARN) to JSON `{"username","password","api_key","region"}`, never stored in config.
+
+**Built from the public docs and tested against a fake server, not yet run against a real NewBook.** Do not point it at a live park until `scripts/newbook-probe.js` passes on a sandbox (below).
+
+How NewBook's model maps to OnSite's:
+
+| NewBook | OnSite |
+|---|---|
+| Accommodation **category** (NewBook auto-allocates a site) | an offerable "site" (`site_id` = `category_id`) |
+| `tariff_total` of the cheapest bookable tariff | price (`/ nights` = per night); the stay total is NewBook's number |
+| `category_max_combined` (or adults + children), `category_max_animals` | max guests, pet friendly |
+| category `features`, site sizes (ft converted to m) | amenities, vehicle length |
+| status `Unconfirmed` (configurable) | a held booking; `Confirmed` once paid; `Cancelled` + reason id to release |
+| payment against the booking's client **account** | `payments_create` with our payment id as `type_reference` |
+
+Behaviours that matter for money:
+- **Guest address is required by NewBook** and phone callers aren't asked for one, so AI-booking parks must configure a `placeholder_address`; the booking's notes say to collect the real one at check-in. The app **refuses to start** a real-NewBook AI-booking park with a missing address, payment type or cancellation reason.
+- **No idempotency in the API.** Writes are sent **once, never auto-retried**. If a create times out or errors, the flow looks the booking up by our reference (written into its notes); if it can't be found, staff are alerted ("outcome unknown: check NewBook") and the caller is handed off, never told "booked".
+- **Payments are posted idempotently**: the client first lists the account's payments and skips if our payment id is already there, so a provider retry after a partial failure cannot double-post. Order is payment, then confirm.
+- **Release never cancels a booking that is no longer a hold**, and confirming a cancelled booking is refused.
+- **Price check:** the booking's total from NewBook must equal the price read back to the caller; otherwise the hold is released and a person is alerted. (Rates can depend on occupancy; we pass the party size and pets, but not yet an adults/children split.)
+- Reads are retried once on throttling/5xx; there is a client-side limiter (80/min per container, NewBook allows 100). Category data is cached for a day and warmed at startup so the first call doesn't blow the voice budget.
+
+### Verify against a real NewBook
+
+```bash
+NEWBOOK_CREDS='{"username":"...","password":"...","api_key":"...","region":"au"}' \
+  node scripts/newbook-probe.js --park parks.newbook-rest.example.json:friend-caravan-park          # read-only
+  node scripts/newbook-probe.js --park ... --write   # SANDBOX ONLY: creates, finds, pays $1, confirms one test booking
+```
+
+Prints a PASS/FAIL checklist for each assumption and exits non-zero on any failure.
+
+### Assumptions to confirm with NewBook Support (not settled by the docs I could read)
+
+1. **Hold behaviour:** does an `Unconfirmed` booking block the site like a normal booking (Quote may not)? Does anything auto-expire it? (We expire unpaid holds ourselves.)
+2. **`bookings_list` search** surfaces text in a booking's notes (used to recover from a lost create response). If not, recovery falls back to a staff alert.
+3. **`payments_create` fields:** the docs show two variants (`type`/`description`/`type_reference` and `payment_type`/`gl_category_id`/`generated_when`); the client sends the first (plus `gl_category_id` if configured). The write-probe checks it.
+4. **Address:** one docs section says `guests_create` needs only a name; `bookings_create` lists address as required. We send the placeholder address either way.
+5. **Site-level availability** (booking a specific site rather than a category) may need special registration; `unit_mode: "site"` exists but is unverified and unused.
+6. Error message wording (used to tell "site unavailable" from other failures; unknown failures take the safe lookup-then-hand-off path), the timezone of `generated_when`, and whether children need to be split from adults for correct rates.
 
 ## What's not built yet
 
-- **Real integrations:** NewBook via its **REST API** (see below; the brief's WSSE auth and endpoints belong to the OTA API, not REST), Dialpad's actual payload format and webhook auth (the `/phone-callback` and `/call-ended` endpoints are **unauthenticated**), an SMS provider, a payment provider (Stripe-style), staff alert channels.
+- **Real integrations:** running the NewBook REST client against a real instance (the client is written; the probe is the next step),  Dialpad's actual payload format and webhook auth (the `/phone-callback` and `/call-ended` endpoints are **unauthenticated**), an SMS provider, a payment provider (Stripe-style), staff alert channels.
 - **Real AWS:** the DynamoDB store has only run against `dynalite`. Not yet done: deploy the stack, run the suites against a real table (IAM, TTL actually deleting, GSI propagation delay, throttling, latency), and decide ledger retention. There is no data migration tool (nothing is live yet).
 - **Voice channel:** unverified that Dialpad can run a turn-by-turn voice conversation; a voice-capable telephony provider may be needed (see docs/MODES-AND-PAYMENTS.md).
 - Two-way SMS conversations, STOP handling on inbound, park self-service admin with real auth (admin routes are not exposed via API Gateway), live-Claude prompt tuning and latency measurement, cancel/modify flows, invoicing.
 
 ## Files
 
-`index.js` wiring/server · `lambda.js` Lambda entry (+ jobs) · `dialpad-handler.js` webhooks · `conversation-logic.js` routing, escalation, deadline · `booking-flow.js` booking + message-taking · `payment-handler.js` · `jobs.js` hold expiry · `ledger.js` usage/billing · `parks.js` multi-park registry · `messages.js` wording · `comms.js` · `claude-client.js` live · `claude-stub.js` offline · `newbook-client.js`, `sms-provider.js`, `payment-provider.js`, `notifier.js` mocks · `state-store.js` (interface + in-memory) · `dynamo-store.js` · `repos.js` keys/retention/indexes · `redact.js` · `util.js` · `dates.js` · `admin.js` · `tests.js`, `tests-platform.js`, `tests-store.js`, `test-helpers.js`, `test-dynamo.js` · `sam.yaml` · `parks.example.json` · `test-logs/`
+`index.js` wiring/server · `lambda.js` Lambda entry (+ jobs) · `dialpad-handler.js` webhooks · `conversation-logic.js` routing, escalation, deadline · `booking-flow.js` booking + message-taking · `payment-handler.js` · `jobs.js` hold expiry · `ledger.js` usage/billing · `parks.js` multi-park registry · `messages.js` wording · `comms.js` · `claude-client.js` live · `claude-stub.js` offline · `newbook-rest-client.js` real NewBook client · `secrets.js` · `scripts/newbook-probe.js` · `test-newbook-server.js` fake NewBook · `newbook-client.js` (mock), `sms-provider.js`, `payment-provider.js`, `notifier.js` mocks · `state-store.js` (interface + in-memory) · `dynamo-store.js` · `repos.js` keys/retention/indexes · `redact.js` · `util.js` · `dates.js` · `admin.js` · `tests.js`, `tests-platform.js`, `tests-store.js`, `test-helpers.js`, `test-dynamo.js` · `sam.yaml` · `parks.example.json` · `test-logs/`
 
 ## Test logs (stub Claude, all providers mocked)
 
-Full output is in `test-logs/` (`all.log` in-memory store, `all-dynamodb.log` DynamoDB store, `store.log`). Summary of `npm test`:
+Full output is in `test-logs/` (`all.log` in-memory store + mock NewBook, `all-dynamodb.log`, `all-rest.log` and `all-dynamodb-rest.log` for the other backend combinations, plus `store.log`, `newbook.log` and per-suite logs). Summary of `npm test`:
 
 ```
 Scenario 1: simple availability check: PASS (7/7 checks)
@@ -142,7 +188,7 @@ Extra: multi-turn, failure modes, concurrency, Lambda wrapper: PASS (23/23 check
 booking: PASS (16/16 checks)
 holds: PASS (15/15 checks)
 payments: PASS (13/13 checks)
-safety: PASS (15/15 checks)
+safety: PASS (18/18 checks)
 messages: PASS (9/9 checks)
 parks: PASS (6/6 checks)
 billing: PASS (11/11 checks)
@@ -152,6 +198,11 @@ contract: PASS (46/46 checks)
 dynamo: PASS (9/9 checks)
 repos: PASS (14/14 checks)
 infra: PASS (5/5 checks)
+protocol: PASS (13/13 checks)
+mapping: PASS (16/16 checks)
+bookings: PASS (21/21 checks)
+config: PASS (11/11 checks)
+probe: PASS (3/3 checks)
 ```
 
 ### The AI books a site (from `test-logs/platform-booking.log`)

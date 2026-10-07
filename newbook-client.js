@@ -37,7 +37,7 @@ const nightsOf = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000
 
 // Test hooks: failWith (everything), createFailWith (createBooking rejects before storing),
 // loseCreateResponse (booking IS stored but the caller sees a timeout, the dangerous case).
-function createMockNewBookClient({ parkName = 'Friends Caravan Park', sites = MOCK_SITES, latencyMs = 50, failWith = null, createFailWith = null, loseCreateResponse = false, allowOverlap = false } = {}) {
+function createMockNewBookClient({ parkName = 'Friends Caravan Park', sites = MOCK_SITES, latencyMs = 50, failWith = null, createFailWith = null, loseCreateResponse = false, allowOverlap = false, totalDelta = 0 } = {}) {
   const detailsCache = new Map();
   const bookings = new Map();
   const byKey = new Map();
@@ -54,6 +54,7 @@ function createMockNewBookClient({ parkName = 'Friends Caravan Park', sites = MO
     failWith,
     createFailWith,
     loseCreateResponse,
+    totalDelta, // test hook: NewBook's own total differs from the quote by this much
     allowOverlap, // test hook: a NewBook that does NOT reject conflicting creates (so our own re-check is the only guard)
 
     async getAvailability(checkIn, checkOut) {
@@ -88,7 +89,7 @@ function createMockNewBookClient({ parkName = 'Friends Caravan Park', sites = MO
       seq += 1;
       const booking = {
         booking_id: `NB${seq}`, idempotency_key: key, site_id: siteId, site_name: site.name, check_in: checkIn, check_out: checkOut,
-        total: site.price * nightsOf(checkIn, checkOut), status, hold_expires_at: holdExpiresAt || null, guest, source: source || null, payments: [],
+        total: site.price * nightsOf(checkIn, checkOut) + client.totalDelta, status, hold_expires_at: holdExpiresAt || null, guest, source: source || null, payments: [],
       };
       bookings.set(booking.booking_id, booking);
       byKey.set(key, booking);

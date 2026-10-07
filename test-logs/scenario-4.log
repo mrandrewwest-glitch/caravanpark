@@ -1,4 +1,4 @@
-OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook: MOCK | store: in-memory | pinned date: 2026-09-30
+OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) | store: in-memory | newbook: in-process mock | pinned date: 2026-09-30
 
 ==================== Scenario 4: escalation (booking intent) ====================
 
@@ -11,7 +11,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [ai reply]    "Perfect, let me connect you with our team to confirm that."
 [dialpad out] {"response_text":"Perfect, let me connect you with our team to confirm that.","transfer_to_human":true,"metadata":{"call_sid":"mock_call_004","turn":1,"status":"ready_to_transfer","park_id":"friend-caravan-park"}}
 [handoff]     Customer: from 2026-10-10. Reason for transfer: wants to book.
-[latency]     42 ms (budget 3000 ms)
+[latency]     44 ms (budget 3000 ms)
   PASS  transfer_to_human true
   PASS  NewBook NOT queried
   PASS  handoff details include phone + conversation history

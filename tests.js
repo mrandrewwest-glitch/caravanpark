@@ -4,7 +4,7 @@
 // Runs against the real Express app over HTTP (POST /test-call) with the mock NewBook client.
 // Claude is live if ANTHROPIC_API_KEY is set, otherwise the offline stub (clearly labelled in output).
 
-const { start, call, printFlow, makeChecker, TODAY, BUDGET_MS, STORE_NAME } = require('./test-helpers');
+const { start, call, printFlow, makeChecker, TODAY, BUDGET_MS, STORE_NAME, NEWBOOK_NAME } = require('./test-helpers');
 const { createClaudeClient } = require('./claude-client');
 const { createMockNewBookClient } = require('./newbook-client');
 
@@ -202,7 +202,7 @@ async function main() {
   const arg = process.argv[2] || 'all';
   const keys = arg === 'all' ? ['1', '2', '3', '4', 'extra'] : [arg];
   if (keys.some((k) => !scenarios[k])) { console.error(`Unknown scenario "${arg}". Use 1, 2, 3, 4, extra or all.`); process.exit(2); }
-  console.log(`OnSite test run | claude client: ${createClaudeClient().mode.toUpperCase()}${createClaudeClient().mode === 'stub' ? ' (offline rule-based stand-in, NOT Claude)' : ''} | NewBook: MOCK | store: ${STORE_NAME} | pinned date: ${TODAY}`);
+  console.log(`OnSite test run | claude client: ${createClaudeClient().mode.toUpperCase()}${createClaudeClient().mode === 'stub' ? ' (offline rule-based stand-in, NOT Claude)' : ''} | store: ${STORE_NAME} | newbook: ${NEWBOOK_NAME} | pinned date: ${TODAY}`);
   const all = [];
   for (const k of keys) {
     const s = scenarios[k];

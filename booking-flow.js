@@ -101,7 +101,7 @@ async function bookingTurn(ctx) {
 
   // ---- Read-back ----
   let quote;
-  try { quote = await newbook.quote(b.site_id, data.check_in_date, data.check_out_date); } catch (err) {
+  try { quote = await newbook.quote(b.site_id, data.check_in_date, data.check_out_date, { guests: data.num_guests, animals: data.has_pet ? 1 : 0 }); } catch (err) {
     ctx.deps.logger.warn('quote_failed', { call_sid: call.call_sid, error: err.message });
     return ctx.handoff({ kind: 'booking_error', decision: 'transfer: quote failed', reason: 'could not get a price from the booking system' });
   }
@@ -149,9 +149,13 @@ async function createBooking(ctx, b) {
       return ctx.offerSites({ availability, sites: ctx.relevant(availability) }, 'Sorry, that site was just taken. ', 'booking: site taken at create');
     }
     // Unknown outcome: the booking may exist. Never retry blindly; look it up by key first.
-    try { booking = await newbook.findBookingByKey(key); } catch (lookupErr) { trace.booking_lookup_error = lookupErr.message; }
+    try { booking = await newbook.findBookingByKey(key, { check_in: data.check_in_date, check_out: data.check_out_date }); } catch (lookupErr) { trace.booking_lookup_error = lookupErr.message; }
     if (!booking) {
       deps.logger.error('booking_create_failed', { call_sid: call.call_sid, error: err.message });
+      if (err.outcomeUnknown !== false) {
+        // The request may have reached NewBook. Staff must check before anyone re-books.
+        await alertStaff(deps, park, { kind: 'booking_outcome_unknown', summary: `UNKNOWN OUTCOME: creating a booking for ${b.guest_name} (${b.mobile}), site ${b.site_id}, ${data.check_in_date} to ${data.check_out_date} failed (${err.message}). It may exist in NewBook (look for key ${key}). Nothing was sent to the caller.` });
+      }
       return ctx.handoff({ kind: 'booking_error', decision: 'transfer: booking create failed, no booking found', reason: 'booking create failed' });
     }
     trace.booking_recovered_by_key = true;
@@ -169,6 +173,17 @@ async function createBooking(ctx, b) {
   b.ref = rec.booking_ref;
   trace.booking = { ...(trace.booking || {}), ref: rec.booking_ref, status: 'held' };
   await deps.ledger.addBooking(call.call_sid, rec.booking_ref);
+
+  // 3b. NewBook's own total must match the price the caller agreed to. If its rates produced a
+  // different number, never take payment for it: release the hold and let a person sort it out.
+  if (typeof b.total === 'number' && Math.abs(Number(booking.total) - b.total) > 0.005) {
+    deps.logger.error('booking_total_mismatch', { call_sid: call.call_sid, quoted: b.total, actual: booking.total });
+    try { await newbook.releaseBooking(booking.booking_id, 'price differs from read-back quote'); } catch (e) { deps.logger.error('release_failed', { error: e.message }); }
+    rec.status = 'released'; rec.release_reason = 'price mismatch';
+    await saveBooking(deps.store, rec);
+    await alertStaff(deps, park, { kind: 'booking_price_mismatch', summary: `Booking ${rec.booking_ref} released: NewBook total ${booking.total} differs from the ${b.total} read back to ${b.guest_name} (${b.mobile}). Rates/occupancy may differ from the quote; please call them.` });
+    return ctx.handoff({ kind: 'booking_error', decision: 'transfer: NewBook total differs from quote', reason: 'price differed from the quote read to the caller' });
+  }
 
   // 4. Payment link (hosted page; card data never touches us).
   let link;
