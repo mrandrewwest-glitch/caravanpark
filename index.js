@@ -13,17 +13,26 @@ const { createMockNotifier } = require('./notifier');
 const { createParkRegistry } = require('./parks');
 const { createLedger } = require('./ledger');
 const { MemoryStore } = require('./state-store');
+const { DynamoStore } = require('./dynamo-store');
 const { createLogger } = require('./logger');
 const { dateInZone } = require('./util');
+
+// STORE_BACKEND=dynamodb (+ DYNAMODB_TABLE, optional DYNAMODB_ENDPOINT for local) | memory (default; dev/tests only)
+function makeStore({ now, logger }) {
+  if (process.env.STORE_BACKEND === 'dynamodb') {
+    return DynamoStore.create({ table: process.env.DYNAMODB_TABLE, endpoint: process.env.DYNAMODB_ENDPOINT, now, logger });
+  }
+  return new MemoryStore({ now });
+}
 
 // overrides (tests): claude, store, logger, now, today, parks (array), registry, sms, notifier,
 // newbooks ({parkId: client}), newbook (shorthand for the first park), payments ({parkId: provider}), config.
 function buildDeps(overrides = {}) {
   const env = process.env;
-  const store = overrides.store || new MemoryStore();
   const logger = overrides.logger || createLogger();
   const now = overrides.now || (() => Date.now());
-  const registry = overrides.registry || createParkRegistry({ parks: overrides.parks, store });
+  const store = overrides.store || makeStore({ now, logger });
+  const registry = overrides.registry || createParkRegistry({ parks: overrides.parks, store, ...(overrides.parkCacheMs !== undefined ? { cacheMs: overrides.parkCacheMs } : {}) });
   const firstParkId = registry.ids()[0];
   const sms = overrides.sms || createMockSmsProvider({ store });
   const newbooks = { ...(overrides.newbooks || {}) };
@@ -102,4 +111,4 @@ if (require.main === module) {
   app.listen(port, () => app.deps.logger.info('listening', { port, claude_mode: app.deps.claude.mode }));
 }
 
-module.exports = { createApp, buildDeps };
+module.exports = { createApp, buildDeps, makeStore };

@@ -22,9 +22,9 @@ async function loadSecrets() {
 async function getApp() {
   if (!cachedApp) {
     // Held bookings, call state and the billing ledger must survive between Lambda containers.
-    // Until a DynamoDB store exists, refuse to run in production rather than lose bookings silently.
-    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_MEMORY_STORE !== 'true') {
-      throw new Error('Durable store required: the in-memory store loses bookings between Lambda containers. Implement the DynamoDB store (see state-store.js) or set ALLOW_MEMORY_STORE=true for a throwaway test.');
+    // The in-memory store would silently lose them, so production requires DynamoDB.
+    if (process.env.NODE_ENV === 'production' && process.env.STORE_BACKEND !== 'dynamodb' && process.env.ALLOW_MEMORY_STORE !== 'true') {
+      throw new Error('Durable store required: set STORE_BACKEND=dynamodb and DYNAMODB_TABLE (the in-memory store loses bookings between Lambda containers). ALLOW_MEMORY_STORE=true is for throwaway tests only.');
     }
     await loadSecrets();
     cachedApp = createApp();

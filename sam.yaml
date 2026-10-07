@@ -22,19 +22,21 @@ Resources:
       CodeUri: .
       MemorySize: 512
       Timeout: 10   # the app enforces its own 2.8s per-turn budget (TURN_DEADLINE_MS)
-      # NOTE: in production the handler REFUSES to start until a durable (DynamoDB) store replaces
-      # the in-memory one (see lambda.js and state-store.js). Held bookings and the billing ledger
-      # must survive between Lambda containers.
+      # Production requires the DynamoDB store (lambda.js refuses to start on the in-memory one).
       Environment:
         Variables:
           NODE_ENV: production          # disables /test-call
           PARKS_CONFIG: parks.json      # per-park config shipped with the package (see parks.example.json)
+          STORE_BACKEND: dynamodb
+          DYNAMODB_TABLE: !Ref OnSiteTable
           CLAUDE_MODE: live
           ANTHROPIC_SECRET_ARN: !Ref AnthropicSecretArn
           PARK_ID: !Ref ParkId
       Policies:
         - AWSSecretsManagerGetSecretValuePolicy:
             SecretArn: !Ref AnthropicSecretArn
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OnSiteTable
       Events:
         PhoneCallback:
           Type: Api
@@ -75,10 +77,14 @@ Resources:
         Variables:
           NODE_ENV: production
           PARKS_CONFIG: parks.json
+          STORE_BACKEND: dynamodb
+          DYNAMODB_TABLE: !Ref OnSiteTable
           ANTHROPIC_SECRET_ARN: !Ref AnthropicSecretArn
       Policies:
         - AWSSecretsManagerGetSecretValuePolicy:
             SecretArn: !Ref AnthropicSecretArn
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OnSiteTable
       Events:
         Every5Minutes:
           Type: Schedule
@@ -94,6 +100,41 @@ Resources:
           HttpMethod: '*'
           ThrottlingRateLimit: 100
           ThrottlingBurstLimit: 200
+
+  # One table for everything (see dynamo-store.js / repos.js). Holds held bookings, call state, the
+  # billing ledger and park settings, so it is RETAINED if the stack is deleted.
+  OnSiteTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: gsi1pk, AttributeType: S }
+        - { AttributeName: gsi1sk, AttributeType: S }
+        - { AttributeName: gsi2pk, AttributeType: S }
+        - { AttributeName: gsi2sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: gsi1   # held bookings by hold expiry; open calls by last activity
+          KeySchema:
+            - { AttributeName: gsi1pk, KeyType: HASH }
+            - { AttributeName: gsi1sk, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: gsi2   # calls per park by start time (monthly statements)
+          KeySchema:
+            - { AttributeName: gsi2pk, KeyType: HASH }
+            - { AttributeName: gsi2sk, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
 
   AlertTopic:
     Type: AWS::SNS::Topic
@@ -129,5 +170,7 @@ Resources:
       AlarmActions: [!Ref AlertTopic]
 
 Outputs:
+  TableName:
+    Value: !Ref OnSiteTable
   PhoneCallbackUrl:
     Value: !Sub https://${Api}.execute-api.${AWS::Region}.amazonaws.com/prod/phone-callback

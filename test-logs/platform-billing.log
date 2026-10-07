@@ -1,4 +1,4 @@
-OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook, SMS, payments, notifier: MOCK | pinned date: 2026-09-30
+OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook, SMS, payments, notifier: MOCK | store: in-memory | pinned date: 2026-09-30
 
 ==================== Usage ledger and monthly statement ($100/month + $3 per answered call) ====================
     caller: "Any sites Oct 10 to 15?"

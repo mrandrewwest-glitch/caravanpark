@@ -38,7 +38,7 @@ Names and emails are error-prone by voice: spell-back ("S-A-M, T-A-Y-L-O-R, corr
 - **Latency:** the 3s voice budget applies per turn; the create call is its own turn ("one moment…" filler isn't possible in the Dialpad webhook model, so confirm the create-turn budget with real latency numbers).
 
 ## 5. Dependencies
-- NewBook API access **with write permission** and a **sandbox/test park**; the real endpoints, auth and required fields (the brief's endpoints look like placeholders; some NewBook calls may differ from the examples).
+- NewBook **REST API** access (decided: REST, not OTA; OTA has no payment calls and is aimed at channel managers) with a **sandbox/test instance**. Real methods per NewBook's docs: `pull_availability`, `bookings_create` (Quote/Waitlist/Confirmed statuses), `payments_create`; auth is HTTP Basic + `region` + `api_key`; throttled at 100 requests/minute. The brief's WSSE auth is the OTA API's and does not apply. Still to confirm with NewBook Support: hold/Quote expiry, how a Quote becomes Confirmed, site-level availability, and whether we can search by our own reference.
 - Persistent conversation store (DynamoDB) since the flow spans many turns and retries.
 - SMS provider for the confirmation (see SMS doc).
 - Business rules from the park: unpaid-booking policy, deposit/cancellation terms to mention, minimum stay, check-in/out times, which sites are bookable by the AI (maybe not all 35).

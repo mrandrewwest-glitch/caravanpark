@@ -1,4 +1,4 @@
-OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook: MOCK | pinned date: 2026-09-30
+OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook: MOCK | store: in-memory | pinned date: 2026-09-30
 
 ==================== Scenario 1: simple availability check ====================
 
@@ -10,7 +10,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    respond: availability
 [ai reply]    "Good news, we've got 5 sites for October 9th to October 11th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?"
 [dialpad out] {"response_text":"Good news, we've got 5 sites for October 9th to October 11th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_001","turn":1,"status":"showing_availability","park_id":"friend-caravan-park"}}
-[latency]     103 ms (budget 3000 ms)
+[latency]     92 ms (budget 3000 ms)
   PASS  extracted a check-in and a later check-out (weekend, 2 nights)
   PASS  extraction confidence >= 0.8
   PASS  queried mock NewBook once

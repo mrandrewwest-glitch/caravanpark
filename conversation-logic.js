@@ -5,6 +5,9 @@ const { MSG, LIVE, LEAD } = require('./messages');
 const { redactCardNumbers } = require('./redact');
 const { bookingTurn, startMessageFlow, messageTurn } = require('./booking-flow');
 const { alertStaff } = require('./comms');
+const { TTL, keys } = require('./repos');
+
+const MAX_HISTORY = 80; // keeps the call-state item well under DynamoDB's 400 KB limit
 
 const MAX_CLARIFICATIONS = 2; // a third would-be clarification hands off instead
 const EXTENDED_STAY_NIGHTS = 28;
@@ -74,7 +77,7 @@ async function handleTurn(rawCall, deps, deadline, park) {
   const newbook = deps.providers.newbook(park);
   const today = deps.today(park);
   const started = Date.now();
-  const stateKey = `state:${rawCall.call_sid}`;
+  const stateKey = keys.state(rawCall.call_sid);
   const state = (await store.get(stateKey)) || newState(rawCall, park);
   state.turn_number += 1;
   if (rawCall.caller_phone) state.caller_phone = rawCall.caller_phone;
@@ -102,7 +105,8 @@ async function handleTurn(rawCall, deps, deadline, park) {
     trace.decision = decision;
     trace.response = text;
     trace.latency_ms = Date.now() - started;
-    await store.set(stateKey, state);
+    if (state.conversation_history.length > MAX_HISTORY) state.conversation_history = state.conversation_history.slice(-MAX_HISTORY);
+    await store.set(stateKey, state, { ttlSeconds: TTL.state });
     const handoffInfo = handoff || (transfer ? { strategy: 'live_transfer', reason: reason || decision } : null);
     await ledger.recordTurn(call, park, { spam, handoff: handoffInfo, usage: meter.usage });
     const result = {
@@ -299,7 +303,7 @@ async function processCall(call, deps) {
       await ledger.recordTurn(call, park, { fallback: true, handoff });
       if (!live) {
         // Nobody to transfer to: record a minimal message so staff still call back.
-        await deps.store.set(`messages:${park.id}:${call.call_sid}`, { id: `${park.id}:${call.call_sid}`, park_id: park.id, call_sid: call.call_sid, name: null, callback_number: call.caller_phone || null, caller_phone: call.caller_phone || null, reason: handoff.reason, notes: [], status: 'open', created_ms: deps.now(), summary: `System fallback (${why}); caller said: ${(call.transcript || '').slice(0, 200)}` });
+        await deps.store.set(keys.message(park.id, call.call_sid), { id: `${park.id}:${call.call_sid}`, park_id: park.id, call_sid: call.call_sid, name: null, callback_number: call.caller_phone || null, caller_phone: call.caller_phone || null, reason: handoff.reason, notes: [], status: 'open', created_ms: deps.now(), summary: `System fallback (${why}); caller said: ${(call.transcript || '').slice(0, 200)}` }, { ttlSeconds: TTL.messages });
         await alertStaff(deps, park, { kind: 'callback_requested', summary: `System fallback; call back ${call.caller_phone || 'unknown number'}. Reason: ${why}` });
       }
     } catch (err) { logger.error('fallback_bookkeeping_failed', { error: err.message }); }

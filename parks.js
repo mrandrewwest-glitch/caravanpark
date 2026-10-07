@@ -48,19 +48,26 @@ function loadParks(env = process.env) {
   return [DEFAULT_PARK];
 }
 
-function createParkRegistry({ parks = loadParks(), store, defaultParkId = process.env.DEFAULT_PARK_ID }) {
+// cacheMs: settings overrides are re-read from the store at most this often per container (saves a
+// DynamoDB read per turn). A settings change is visible on other containers within cacheMs.
+function createParkRegistry({ parks = loadParks(), store, defaultParkId = process.env.DEFAULT_PARK_ID, cacheMs = process.env.PARK_CACHE_MS === undefined ? 15000 : Number(process.env.PARK_CACHE_MS) }) {
   if (!parks.length) throw new Error('At least one park is required');
   const byId = new Map(parks.map((p) => [p.id, { ...DEFAULT_PARK, ...p, limits: { ...DEFAULT_PARK.limits, ...p.limits }, staff: { ...DEFAULT_PARK.staff, ...p.staff }, billing: { ...DEFAULT_PARK.billing, ...p.billing } }]));
   const byNumber = new Map();
   for (const p of byId.values()) for (const n of p.numbers || []) byNumber.set(n, p.id);
+  const cache = new Map();
   const fallbackId = defaultParkId && byId.has(defaultParkId) ? defaultParkId : parks[0].id;
 
   const registry = {
     async get(id) {
       const base = byId.get(id);
       if (!base) return null;
+      const hit = cache.get(id);
+      if (cacheMs > 0 && hit && Date.now() - hit.at < cacheMs) return structuredClone(hit.park);
       const overrides = (await store.get(`park_settings:${id}`)) || {};
-      return mergePark(base, overrides);
+      const park = mergePark(base, overrides);
+      if (cacheMs > 0) cache.set(id, { park, at: Date.now() });
+      return structuredClone(park);
     },
 
     // Route by the number the caller dialled. No number supplied -> default park.
@@ -77,6 +84,7 @@ function createParkRegistry({ parks = loadParks(), store, defaultParkId = proces
       if (errors.length) return { errors };
       const current = (await store.get(`park_settings:${id}`)) || {};
       await store.set(`park_settings:${id}`, { ...current, ...patch });
+      cache.delete(id);
       return { park: await registry.get(id) };
     },
 

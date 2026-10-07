@@ -2,6 +2,7 @@
 
 process.env.LOG_LEVEL = process.env.LOG_LEVEL || 'silent';
 const { createApp } = require('./index');
+const { newDynamoStore } = require('./test-dynamo');
 
 const TODAY = process.env.TEST_TODAY || '2026-09-30'; // pinned so "next weekend" is deterministic (a Wednesday)
 const BUDGET_MS = 3000;
@@ -32,8 +33,11 @@ function makeClock(startIso = '2026-09-30T00:00:00Z') {
 
 async function start(overrides = {}) {
   const clock = overrides.clock || makeClock();
+  // STORE=dynamo runs the whole suite against DynamoDB (dynalite) instead of the in-memory store.
+  const store = overrides.store || (process.env.STORE === 'dynamo' ? await newDynamoStore({ now: () => clock.t }) : undefined);
   const app = createApp({
-    parks: TEST_PARKS, today: () => TODAY, now: () => clock.t, enableTestEndpoint: true,
+    store,
+    parks: TEST_PARKS, parkCacheMs: 0, today: () => TODAY, now: () => clock.t, enableTestEndpoint: true,
     ...overrides, config: { adminToken: 'test-admin', ...overrides.config },
   });
   const server = await new Promise((resolve) => { const s = app.listen(0, () => resolve(s)); });
@@ -82,4 +86,4 @@ function makeChecker() {
   return { check, results };
 }
 
-module.exports = { start, call, printFlow, makeChecker, makeClock, TODAY, BUDGET_MS, TEST_PARKS, NUMBERS, RIVER_SITES };
+module.exports = { STORE_NAME: process.env.STORE === 'dynamo' ? 'DynamoDB (dynalite)' : 'in-memory', start, call, printFlow, makeChecker, makeClock, TODAY, BUDGET_MS, TEST_PARKS, NUMBERS, RIVER_SITES };

@@ -4,8 +4,13 @@
 // multi-park routing, billing ledger, resilience. All providers are mocks; no network.
 // Usage: node tests-platform.js <booking|holds|payments|safety|messages|parks|billing|resilience|all>
 
-const { start, makeChecker, NUMBERS } = require('./test-helpers');
+const { start, makeChecker, makeClock, NUMBERS, STORE_NAME } = require('./test-helpers');
 const { createClaudeClient } = require('./claude-client');
+const { newDynamoStore } = require('./test-dynamo');
+const { createMockNewBookClient } = require('./newbook-client');
+const { createMockSmsProvider } = require('./sms-provider');
+const { createMockPaymentProvider } = require('./payment-provider');
+const { createMockNotifier } = require('./notifier');
 
 const PHONE = '+61412345678';
 const MONTH = '2026-09';
@@ -408,13 +413,55 @@ const suites = {
       await env.close();
     },
   },
+
+  containers: {
+    name: 'Two app instances (separate "Lambda containers") sharing one DynamoDB table',
+    async run({ check }) {
+      const clock = makeClock();
+      const now = () => clock.t;
+      const storeA = await newDynamoStore({ now });
+      const storeB = await newDynamoStore({ now, tableName: storeA.table, create: false });
+      const nb = createMockNewBookClient({ parkName: 'Lakeside Holiday Park', latencyMs: 5 });
+      const provider = createMockPaymentProvider({ webhookSecret: 'whsec_lake' });
+      const shared = { clock, newbooks: { lakeside: nb }, payments: { lakeside: provider }, sms: createMockSmsProvider({ store: storeA }), notifier: createMockNotifier() };
+      const A = await start({ store: storeA, ...shared });
+      const B = await start({ store: storeB, ...shared });
+      const apps = [A, B];
+      const sendTo = (env, evId, l) => { const { raw, headers } = provider.simulatePayment(l, { eventId: evId }); return env.post('/payment-webhook', raw, headers); };
+
+      // Each turn of one call lands on the other container: call state must come from the database.
+      const turns = ['Hi, any sites Oct 10 to 15 for 4 of us with a dog?', 'Site 12 please', 'Sam Taylor', 'Yes', 'Yes, go ahead'];
+      let last;
+      for (const [i, t] of turns.entries()) last = await say(apps[i % 2], 'ct1', t);
+      check('a booking conversation alternating between containers completes with one NewBook booking', last.body.booking && last.body.booking.status === 'held' && nb.bookings.size === 1);
+
+      const link = provider.links.at(-1);
+      const both = await Promise.all([sendTo(A, 'evt_ct', link), sendTo(B, 'evt_ct', link), sendTo(A, 'evt_ct', link), sendTo(B, 'evt_ct', link)]);
+      check('the same payment webhook delivered to both containers at once is applied exactly once', both.filter((x) => x.body.result === 'confirmed').length === 1 && [...nb.bookings.values()][0].payments.length === 1 && shared.sms.sent.filter((x) => x.kind === 'booking_confirmation').length === 1);
+
+      let second;
+      for (const [i, t] of ['Hi, any sites Dec 10 to 14 for 4 of us with a dog?', 'Site 12 please', 'Drew Fox', 'Yes', 'Yes, go ahead'].entries()) second = await say(apps[i % 2], 'ct2', t, { phone: '+61444444444' });
+      const link2 = provider.links.at(-1);
+      clock.advance(46 * MIN); // the hold is due to expire right now
+      const [, raced] = await Promise.all([B.admin('POST', '/jobs/run'), sendTo(A, 'evt_ct2', link2)]);
+      const confirmed = [...nb.bookings.values()].filter((b) => b.check_in === '2026-12-10' && b.status === 'confirmed');
+      check('payment on one container racing the expiry job on the other ends consistent (paid, one confirmed booking)', second.body.booking && raced.status === 200 && confirmed.length === 1);
+
+      await say(B, 'ct3', 'Any sites Oct 10 to 15?');
+      await B.post('/call-ended', { call_sid: 'ct3', called_number: NUMBERS.lakeside, duration_seconds: 60 });
+      const st = (await A.admin('GET', `/usage/lakeside?month=${MONTH}`)).body;
+      check('billing ledger written by one container is visible from the other', st.billable_calls >= 1 && st.lines.some((l) => l.call_sid === 'ct3'));
+      await A.close();
+      await B.close();
+    },
+  },
 };
 
 async function main() {
   const arg = process.argv[2] || 'all';
   const keys = arg === 'all' ? Object.keys(suites) : [arg];
   if (keys.some((k) => !suites[k])) { console.error(`Unknown suite "${arg}". Use ${Object.keys(suites).join(', ')} or all.`); process.exit(2); }
-  console.log(`OnSite platform tests | claude client: ${createClaudeClient().mode.toUpperCase()}${createClaudeClient().mode === 'stub' ? ' (offline rule-based stand-in, NOT Claude)' : ''} | NewBook, SMS, payments, notifier: MOCK | pinned date: 2026-09-30`);
+  console.log(`OnSite platform tests | claude client: ${createClaudeClient().mode.toUpperCase()}${createClaudeClient().mode === 'stub' ? ' (offline rule-based stand-in, NOT Claude)' : ''} | NewBook, SMS, payments, notifier: MOCK | store: ${STORE_NAME} | pinned date: 2026-09-30`);
   const all = [];
   for (const k of keys) {
     const s = suites[k];

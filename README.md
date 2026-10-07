@@ -2,7 +2,7 @@
 
 Multi-park service that answers a park's calls (when the owners are busy, or all the time), answers questions from live availability, **creates a held booking in NewBook, texts the caller a secure payment link, and confirms the booking when it's paid**. When it can't or shouldn't handle something it either **live-transfers** to staff or **takes a message**, depending on the park's mode.
 
-**Status: mock-first build.** Everything below runs and is tested end to end, but against **mock** NewBook, SMS, payment and staff-notification providers, and (without an API key) an **offline stand-in for Claude**. Nothing talks to real Dialpad, NewBook, an SMS provider, a payment provider or AWS yet. See [What's not built yet](#whats-not-built-yet).
+**Status: mock-first build with a production-shaped DynamoDB store.** Everything below runs and is tested end to end, but against **mock** NewBook, SMS, payment and staff-notification providers, and (without an API key) an **offline stand-in for Claude**. The DynamoDB store is tested against a DynamoDB-compatible emulator (`dynalite`), **not against real AWS**. Nothing talks to real Dialpad, NewBook, an SMS provider, a payment provider or AWS yet. See [What's not built yet](#whats-not-built-yet).
 
 > **About the test logs:** they were produced with the **offline stub Claude client** (`claude-stub.js`, rule-based) because no `ANTHROPIC_API_KEY` was available where this was built. They prove the connector logic: booking state machine, payments, expiry, handoffs, billing, multi-park isolation, resilience. They do **not** show real Claude extraction quality or reply wording. Run with your key to see live behaviour (`ANTHROPIC_API_KEY=... npm test`); the live client itself is only covered by a fake-SDK test.
 
@@ -51,7 +51,7 @@ curl -s localhost:3000/test-call -H 'content-type: application/json' -d '{
 
 Per park (`parks.example.json`): numbers, mode, booking_mode, **hold_minutes (adjustable by the park)**, deposit_percent, limits (max nights, advance days, same-day), staff alert contacts + callback promise, billing terms, provider config. Overrides made via the admin API persist in the store.
 
-Environment: `ANTHROPIC_API_KEY` (empty = stub), `CLAUDE_MODE`, `EXTRACTION_MODEL` / `RESPONSE_MODEL`, `TURN_DEADLINE_MS` (2800), `PARKS_CONFIG`, `DEFAULT_PARK_ID`, `ADMIN_TOKEN`, `ENABLE_TEST_ENDPOINT`, `PARK_TIMEZONE`, `LOG_LEVEL`, `ANTHROPIC_SECRET_ARN` (Lambda).
+Environment: `STORE_BACKEND` (`memory` default | `dynamodb`), `DYNAMODB_TABLE`, `DYNAMODB_ENDPOINT` (local only), `PARK_CACHE_MS` (15000), `LEDGER_RETENTION_DAYS` (unset = keep forever), `ANTHROPIC_API_KEY` (empty = stub), `CLAUDE_MODE`, `EXTRACTION_MODEL` / `RESPONSE_MODEL`, `TURN_DEADLINE_MS` (2800), `PARKS_CONFIG`, `DEFAULT_PARK_ID`, `ADMIN_TOKEN`, `ENABLE_TEST_ENDPOINT`, `PARK_TIMEZONE`, `LOG_LEVEL`, `ANTHROPIC_SECRET_ARN` (Lambda).
 
 ## Safety design (booking)
 
@@ -65,33 +65,73 @@ Environment: `ANTHROPIC_API_KEY` (empty = stub), `CLAUDE_MODE`, `EXTRACTION_MODE
 ## Tests
 
 ```bash
-npm test                      # everything below (142 checks)
+npm test                      # everything below, in-memory store (220 checks)
+npm run test:dynamo           # the same suites with every store operation going to DynamoDB (dynalite), 220 checks
 npm run test:scenario-1       # brief scenarios 1-4: availability / clarification / pet-friendly / escalation
 npm run test:extra            # multi-turn, failures, timeout, concurrency, Lambda wrapper, live-client parsing
 npm run test:platform         # booking, holds, payments, safety, messages, parks, billing, resilience
-npm run test:booking          # (also :holds :payments :safety :messages :parks :billing :resilience)
+npm run test:booking          # (also :holds :payments :safety :messages :parks :billing :resilience :containers)
+npm run test:store            # store contract (memory vs DynamoDB), DynamoDB contention/multi-container/leases, repos, sam.yaml drift
 ```
 
-Tests run the real Express app over HTTP with the clock and date pinned (2026-09-30). With a key set they run against live Claude; assertions are on structure, not exact wording. Safety checks were verified by mutation: removing the signature check, the pre-create availability re-check, key-based recovery, or the payment lock each makes tests fail.
+Tests run the real Express app over HTTP with the clock and date pinned (2026-09-30). With a key set they run against live Claude; assertions are on structure, not exact wording. Safety checks were verified by mutation: removing the signature check, the pre-create availability re-check, key-based recovery, or the payment lock, and (in the store) the conditional writes behind claims, optimistic updates and locks, or reintroducing a lock-release bug, each makes tests fail. The `containers` suite runs two app instances over one table (alternating turns of one call, duplicate webhooks hitting both, a payment racing the expiry job on the other container).
+
+## Storage (DynamoDB)
+
+`dynamo-store.js` implements the store interface in `state-store.js`; `repos.js` owns key names, retention and index entries. One table, `pk` string key, `v` value, `version` counter, `ttl` epoch seconds, plus two sparse GSIs. Defined once in `TABLE_DEFINITION` and mirrored in `sam.yaml` (a test fails if they drift).
+
+| Data | Key | Retention | Index |
+|---|---|---|---|
+| Call state | `state:<call_sid>` | 7 days | none |
+| Held/confirmed AI bookings | `bookings:<park>:<ref>` | 90 days | `gsi1` `bookings#held` by hold expiry, **only while status is held** |
+| Billing ledger (calls) | `calls:<call_sid>` | **forever** (set `LEDGER_RETENTION_DAYS` to purge) | `gsi2` per park by start time; `gsi1` `calls#open` until finalised |
+| Take-a-message records | `messages:<park>:<call_sid>` | 90 days | none |
+| Payment event dedupe | `events:<park>:<event_id>` | 35 days | none |
+| Park settings, SMS opt-outs | `park_settings:<id>`, `suppression:<phone>` | forever | none |
+
+Concurrency and consistency:
+- **Reads by key are strongly consistent.** Index queries are **eventually consistent**, so the expiry job and idle-call finaliser only use them to find candidates and then re-read (and lock, or conditionally update) each record before acting.
+- **`withLock`** is a lease item (`lock:<key>`) taken with a conditional write, so payment webhooks, the expiry job and duplicate deliveries are serialised **across Lambda containers**. A holder that dies lets the lease lapse (30 s). A holder that stalls longer than the lease could overlap the next one, so the guarded work is also idempotent (status checks, idempotency keys).
+- **`update`** (used by the ledger) is optimistic: read, change, conditional write on the version, retry with backoff.
+- DynamoDB TTL deletion is lazy (up to ~48 h), so every read and query also ignores expired items. Items over ~350 KB are rejected (400 KB hard limit); call history is capped at 80 entries.
+- Each normal call turn makes 4 DynamoDB calls (park settings are cached 15 s per container); creating a booking about 11. Measured against the emulator, so real latency still needs measuring in AWS.
+
+Production **requires** it: `lambda.js` refuses to start with `NODE_ENV=production` unless `STORE_BACKEND=dynamodb`.
 
 ## Billing and the usage ledger
 
 Every call is recorded per park (duration, outcome, handoff, bookings, SMS segments, Claude tokens). A call is **billable** if answered, not spam, not a test call, had a real exchange, and lasted >= `min_call_seconds` (15). Statements (`/admin/usage`) show base fee + $3 x billable calls, each billable call, what was not billed and why, and our cost drivers. Calls without a `/call-ended` event are finalised by an idle job with an **estimated** duration (labelled as such; a one-turn call can't be shown to be short, so it is billed; decide if that is acceptable in the park agreement).
 
+## NewBook: REST API, not OTA
+
+NewBook offers two APIs. From its developer documentation ([REST](https://developers.newbook.cloud/rest.php), [OTA](https://developers.newbook.cloud/ota.php)):
+
+| | REST API | OTA API |
+|---|---|---|
+| Format / auth | JSON over HTTPS; HTTP Basic (username/password) plus `region` and `api_key` in the request | OpenTravel XML/SOAP-style; Oasis **WSSE** header plus an instance token |
+| Reads availability | `pull_availability` | `OTA_HotelAvailRQ` |
+| Creates bookings | `bookings_create`; supports Quote and Waitlist statuses as well as Confirmed | `OTA_HotelResNotifRQ` |
+| Payments | `payments_create`, `charges_create`, `credits_create` | **None** (reservations and availability/rates only) |
+| Built for | Developers/integrators building apps for properties | Channel managers, OTAs, booking sites |
+| Limits | Throttled after 100 requests/minute; paginated lists | n/a in the docs |
+| Access | Credentials issued by NewBook Support, chosen at registration | Same registration, choose OTA |
+
+OnSite needs booking creation **and** payment posting, which only the REST API offers, so **REST is the right choice**. The brief's "WSSE" detail comes from the OTA API and does not apply. Things to confirm with NewBook Support when requesting credentials (not verified; the docs are very large and only the start was read): how to hold a booking until payment (Quote status and its expiry), the update call that turns a Quote into Confirmed, how `pull_availability` maps to *sites* versus tariffs (site-level availability may need special registration), whether booking requests can carry an idempotency key or reference we can search by, and a sandbox instance. The mock `newbook-client.js` deliberately mirrors the five operations the real client must provide.
+
 ## What's not built yet
 
-- **Real integrations:** NewBook (booking create/confirm/release, payment posting, WSSE auth; the brief's endpoints look like placeholders), Dialpad's actual payload format and webhook auth (the `/phone-callback` and `/call-ended` endpoints are **unauthenticated**), an SMS provider, a payment provider (Stripe-style), staff alert channels.
-- **Durable storage:** call state, held bookings and the billing ledger live in an in-memory store. Lambda containers don't share memory, so **`lambda.js` refuses to start in production** until a DynamoDB store exists (conditional writes in place of the in-process lock; GSI on status+expiry for the job; no TTL on the ledger).
+- **Real integrations:** NewBook via its **REST API** (see below; the brief's WSSE auth and endpoints belong to the OTA API, not REST), Dialpad's actual payload format and webhook auth (the `/phone-callback` and `/call-ended` endpoints are **unauthenticated**), an SMS provider, a payment provider (Stripe-style), staff alert channels.
+- **Real AWS:** the DynamoDB store has only run against `dynalite`. Not yet done: deploy the stack, run the suites against a real table (IAM, TTL actually deleting, GSI propagation delay, throttling, latency), and decide ledger retention. There is no data migration tool (nothing is live yet).
 - **Voice channel:** unverified that Dialpad can run a turn-by-turn voice conversation; a voice-capable telephony provider may be needed (see docs/MODES-AND-PAYMENTS.md).
 - Two-way SMS conversations, STOP handling on inbound, park self-service admin with real auth (admin routes are not exposed via API Gateway), live-Claude prompt tuning and latency measurement, cancel/modify flows, invoicing.
 
 ## Files
 
-`index.js` wiring/server · `lambda.js` Lambda entry (+ jobs) · `dialpad-handler.js` webhooks · `conversation-logic.js` routing, escalation, deadline · `booking-flow.js` booking + message-taking · `payment-handler.js` · `jobs.js` hold expiry · `ledger.js` usage/billing · `parks.js` multi-park registry · `messages.js` wording · `comms.js` · `claude-client.js` live · `claude-stub.js` offline · `newbook-client.js`, `sms-provider.js`, `payment-provider.js`, `notifier.js` mocks · `state-store.js` · `redact.js` · `util.js` · `dates.js` · `admin.js` · `tests.js`, `tests-platform.js`, `test-helpers.js` · `sam.yaml` · `parks.example.json` · `test-logs/`
+`index.js` wiring/server · `lambda.js` Lambda entry (+ jobs) · `dialpad-handler.js` webhooks · `conversation-logic.js` routing, escalation, deadline · `booking-flow.js` booking + message-taking · `payment-handler.js` · `jobs.js` hold expiry · `ledger.js` usage/billing · `parks.js` multi-park registry · `messages.js` wording · `comms.js` · `claude-client.js` live · `claude-stub.js` offline · `newbook-client.js`, `sms-provider.js`, `payment-provider.js`, `notifier.js` mocks · `state-store.js` (interface + in-memory) · `dynamo-store.js` · `repos.js` keys/retention/indexes · `redact.js` · `util.js` · `dates.js` · `admin.js` · `tests.js`, `tests-platform.js`, `tests-store.js`, `test-helpers.js`, `test-dynamo.js` · `sam.yaml` · `parks.example.json` · `test-logs/`
 
 ## Test logs (stub Claude, all providers mocked)
 
-Full output is in `test-logs/`. Summary of `npm test`:
+Full output is in `test-logs/` (`all.log` in-memory store, `all-dynamodb.log` DynamoDB store, `store.log`). Summary of `npm test`:
 
 ```
 Scenario 1: simple availability check: PASS (7/7 checks)
@@ -107,6 +147,11 @@ messages: PASS (9/9 checks)
 parks: PASS (6/6 checks)
 billing: PASS (11/11 checks)
 resilience: PASS (10/10 checks)
+containers: PASS (4/4 checks)
+contract: PASS (46/46 checks)
+dynamo: PASS (9/9 checks)
+repos: PASS (14/14 checks)
+infra: PASS (5/5 checks)
 ```
 
 ### The AI books a site (from `test-logs/platform-booking.log`)

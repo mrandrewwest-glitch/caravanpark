@@ -4,6 +4,7 @@ const D = require('./dates');
 const { normaliseMobile, maskPhone, spokenDuration, money } = require('./util');
 const { MSG, SMS, range, short } = require('./messages');
 const { sendSms, alertStaff } = require('./comms');
+const { saveBooking, keys, TTL } = require('./repos');
 
 // Deterministic booking state machine. Claude only extracts what the caller said;
 // code decides what happens next, what the price is, and when the NewBook booking is
@@ -164,8 +165,7 @@ async function createBooking(ctx, b) {
     currency: park.billing.currency, mobile: b.mobile, hold_minutes: park.hold_minutes, hold_expires_ms: holdExpiresMs,
     created_ms: deps.now(), reminder_sent: false, sms_failed: false, payment_link: null,
   };
-  const recKey = `bookings:${park.id}:${rec.booking_ref}`;
-  await deps.store.set(recKey, rec);
+  await saveBooking(deps.store, rec);
   b.ref = rec.booking_ref;
   trace.booking = { ...(trace.booking || {}), ref: rec.booking_ref, status: 'held' };
   await deps.ledger.addBooking(call.call_sid, rec.booking_ref);
@@ -181,12 +181,12 @@ async function createBooking(ctx, b) {
     deps.logger.error('payment_link_failed', { call_sid: call.call_sid, error: err.message });
     try { await newbook.releaseBooking(booking.booking_id, 'payment link failed'); } catch (e) { deps.logger.error('release_failed', { error: e.message }); }
     rec.status = 'released'; rec.release_reason = 'payment link failed';
-    await deps.store.set(recKey, rec);
+    await saveBooking(deps.store, rec);
     await alertStaff(deps, park, { kind: 'payment_link_failed', summary: `Payment link failed for ${rec.booking_ref}; hold released. Caller ${call.caller_phone || 'unknown'}.` });
     return ctx.handoff({ kind: 'booking_error', decision: 'transfer: payment link failed', reason: 'payment setup failed' });
   }
   rec.payment_link = { id: link.id, url: link.url };
-  await deps.store.set(recKey, rec);
+  await saveBooking(deps.store, rec);
 
   // 5. Text the link. If that fails the hold stands; staff are told to send it.
   let smsOk = true;
@@ -195,7 +195,7 @@ async function createBooking(ctx, b) {
   } catch (err) {
     smsOk = false;
     rec.sms_failed = true;
-    await deps.store.set(recKey, rec);
+    await saveBooking(deps.store, rec);
     deps.logger.error('payment_link_sms_failed', { call_sid: call.call_sid, error: err.message });
     await alertStaff(deps, park, { kind: 'payment_link_sms_failed', summary: `Could not text the payment link for ${rec.booking_ref} to ${rec.mobile}. Link: ${link.url}` });
   }
@@ -252,7 +252,7 @@ async function advanceMessageFlow(ctx, lead) {
     id, park_id: park.id, call_sid: call.call_sid, name: f.name, callback_number: f.number, caller_phone: call.caller_phone || null,
     reason: f.reason, notes: f.notes, status: 'open', created_ms: deps.now(), summary: ctx.summary(f.reason), conversation_history: state.conversation_history,
   };
-  await deps.store.set(`messages:${id}`, record);
+  await deps.store.set(keys.message(park.id, call.call_sid), record, { ttlSeconds: TTL.messages });
   f.done = true;
   state.status = 'message_taken';
   const textable = normaliseMobile(f.number);

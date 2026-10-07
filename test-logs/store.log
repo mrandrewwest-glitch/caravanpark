@@ -1,0 +1,97 @@
+OnSite store tests | MemoryStore vs DynamoStore (dynalite, real DynamoDB wire protocol)
+
+==================== Store contract: identical behaviour on MemoryStore and DynamoStore ====================
+  PASS  [memory] set/get round-trips nested data (undefined dropped, null and empty string kept)
+  PASS  [memory] get of a missing key is null
+  PASS  [memory] returned values are copies (mutating them does not change the store)
+  PASS  [memory] delete removes the key
+  PASS  [memory] putIfAbsent claims a free key
+  PASS  [memory] putIfAbsent refuses a live key and does not overwrite
+  PASS  [memory] item is readable before its TTL
+  PASS  [memory] expired item reads as missing (DynamoDB deletes lazily, so reads must filter)
+  PASS  [memory] an expired key can be claimed again
+  PASS  [memory] items with no TTL never expire
+  PASS  [memory] update creates then modifies
+  PASS  [memory] update returning undefined leaves the item unchanged
+  PASS  [memory] query returns items ordered by sort key
+  PASS  [memory] query supports sort-key ranges
+  PASS  [memory] query respects limit
+  PASS  [memory] index is sparse: changing status removes the item from the index
+  PASS  [memory] expired items are excluded from queries
+  PASS  [memory] a second index works independently
+  PASS  [memory] list(prefix) finds only matching live keys (dev/test helper)
+  PASS  [memory] oversized items fail loudly (DynamoDB 400 KB limit)
+  PASS  [memory] withLock serialises contenders (no interleaving)
+  PASS  [memory] lock is released even when the work throws, and the error propagates
+  PASS  [memory] lock is free again immediately after a normal release (no leaked locks)
+  PASS  [dynamodb] set/get round-trips nested data (undefined dropped, null and empty string kept)
+  PASS  [dynamodb] get of a missing key is null
+  PASS  [dynamodb] returned values are copies (mutating them does not change the store)
+  PASS  [dynamodb] delete removes the key
+  PASS  [dynamodb] putIfAbsent claims a free key
+  PASS  [dynamodb] putIfAbsent refuses a live key and does not overwrite
+  PASS  [dynamodb] item is readable before its TTL
+  PASS  [dynamodb] expired item reads as missing (DynamoDB deletes lazily, so reads must filter)
+  PASS  [dynamodb] an expired key can be claimed again
+  PASS  [dynamodb] items with no TTL never expire
+  PASS  [dynamodb] update creates then modifies
+  PASS  [dynamodb] update returning undefined leaves the item unchanged
+  PASS  [dynamodb] query returns items ordered by sort key
+  PASS  [dynamodb] query supports sort-key ranges
+  PASS  [dynamodb] query respects limit
+  PASS  [dynamodb] index is sparse: changing status removes the item from the index
+  PASS  [dynamodb] expired items are excluded from queries
+  PASS  [dynamodb] a second index works independently
+  PASS  [dynamodb] list(prefix) finds only matching live keys (dev/test helper)
+  PASS  [dynamodb] oversized items fail loudly (DynamoDB 400 KB limit)
+  PASS  [dynamodb] withLock serialises contenders (no interleaving)
+  PASS  [dynamodb] lock is released even when the work throws, and the error propagates
+  PASS  [dynamodb] lock is free again immediately after a normal release (no leaked locks)
+
+>>> contract: PASS (46/46 checks)
+
+==================== DynamoDB: contention, multi-container behaviour, leases, pagination ====================
+  PASS  putIfAbsent: exactly one of 40 concurrent claims across 3 containers wins
+  PASS  update (optimistic): 45 concurrent increments across 3 containers lose no updates
+  PASS  withLock: mutual exclusion across containers (non-atomic read-modify-write stays correct)
+  PASS  a live lease blocks other containers; waiting times out with LOCK_TIMEOUT
+  PASS  after the dead holder's lease lapses another container takes over
+  PASS  query follows pagination (14 x 100 KB items, ~1.4 MB, all returned in order)
+  PASS  list(prefix) follows pagination too
+  PASS  every write bumps the item version
+  PASS  update enforces the item size limit too
+
+>>> dynamo: PASS (9/9 checks)
+
+==================== Repos: retention and indexes for bookings and calls ====================
+  PASS  [memory] held booking appears in the held index
+  PASS  [memory] confirmed booking leaves the held index but stays readable
+  PASS  [memory] booking records expire after the 90 day retention
+  PASS  [memory] open calls are found by last activity
+  PASS  [memory] finalised calls leave the open index
+  PASS  [memory] calls are indexed per park for statements
+  PASS  [memory] billing ledger records have no TTL by default
+  PASS  [dynamodb] held booking appears in the held index
+  PASS  [dynamodb] confirmed booking leaves the held index but stays readable
+  PASS  [dynamodb] booking records expire after the 90 day retention
+  PASS  [dynamodb] open calls are found by last activity
+  PASS  [dynamodb] finalised calls leave the open index
+  PASS  [dynamodb] calls are indexed per park for statements
+  PASS  [dynamodb] billing ledger records have no TTL by default
+
+>>> repos: PASS (14/14 checks)
+
+==================== Infrastructure template matches the schema the code expects ====================
+  PASS  every attribute in the code's table definition is declared in sam.yaml
+  PASS  both indexes exist with the same key attributes
+  PASS  DynamoDB TTL is enabled on the "ttl" attribute the store writes
+  PASS  table is retained on stack deletion, backed up (PITR), encrypted, on-demand
+  PASS  both Lambda functions get table access and select the DynamoDB backend
+
+>>> infra: PASS (5/5 checks)
+
+==================== SUMMARY ====================
+PASS  contract
+PASS  dynamo
+PASS  repos
+PASS  infra

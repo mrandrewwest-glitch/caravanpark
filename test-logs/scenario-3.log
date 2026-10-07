@@ -1,4 +1,4 @@
-OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook: MOCK | pinned date: 2026-09-30
+OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook: MOCK | store: in-memory | pinned date: 2026-09-30
 
 ==================== Scenario 3: pet-friendly request ====================
 
@@ -10,7 +10,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    respond: availability
 [ai reply]    "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with a playground nearby, power and water, and Site 5 is $250 a night with power, water and wifi. Would one of those suit you?"
 [dialpad out] {"response_text":"Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with a playground nearby, power and water, and Site 5 is $250 a night with power, water and wifi. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_003","turn":1,"status":"showing_availability","park_id":"friend-caravan-park"}}
-[latency]     107 ms (budget 3000 ms)
+[latency]     90 ms (budget 3000 ms)
   PASS  dates 2026-10-10 to 2026-10-15
   PASS  has_pet true
   PASS  num_guests 3 or 4

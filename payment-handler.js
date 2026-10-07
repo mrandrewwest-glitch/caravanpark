@@ -1,8 +1,8 @@
 'use strict';
 
-const { withLock } = require('./util');
 const { SMS, short } = require('./messages');
 const { sendSms, alertStaff } = require('./comms');
+const { saveBooking, keys, TTL } = require('./repos');
 
 // POST /payment-webhook. The provider calls this after the caller pays the hosted link.
 // Order matters: verify signature -> dedupe -> amount check -> confirm in NewBook -> SMS.
@@ -20,9 +20,10 @@ async function handlePaymentWebhook(req, res, deps) {
   if (typeof event.id !== 'string' || typeof event.booking_ref !== 'string') return res.status(400).json({ error: 'malformed event' });
   if (event.type !== 'payment.succeeded') return res.json({ ignored: event.type });
 
-  const recKey = `bookings:${park.id}:${event.booking_ref}`;
+  const recKey = keys.booking(park.id, event.booking_ref);
   try {
-    const out = await withLock(recKey, () => applyPayment(deps, park, payments, event, recKey));
+    // Cross-container lock (lease in DynamoDB): duplicate deliveries and the expiry job cannot interleave.
+    const out = await deps.store.withLock(recKey, () => applyPayment(deps, park, payments, event, recKey));
     return res.status(out.status || 200).json(out.body);
   } catch (err) {
     // 5xx makes the provider retry; the event is not marked processed.
@@ -32,16 +33,17 @@ async function handlePaymentWebhook(req, res, deps) {
 }
 
 async function applyPayment(deps, park, payments, event, recKey) {
-  const evKey = `events:${park.id}:${event.id}`;
+  const evKey = keys.event(park.id, event.id);
+  const markDone = (result) => deps.store.set(evKey, { at: deps.now(), result }, { ttlSeconds: TTL.events });
   if (await deps.store.get(evKey)) return { body: { duplicate: true } };
   const rec = await deps.store.get(recKey);
   if (!rec) {
     await alertStaff(deps, park, { kind: 'payment_for_unknown_booking', summary: `Payment ${event.payment_id} for unknown booking ${event.booking_ref}. Check the payment provider.` });
-    await deps.store.set(evKey, { at: deps.now(), result: 'unknown booking' });
+    await markDone('unknown booking');
     return { body: { received: true, result: 'unknown booking' } };
   }
   const newbook = deps.providers.newbook(park);
-  const done = async (result) => { await deps.store.set(evKey, { at: deps.now(), result }); return { body: { received: true, result } }; };
+  const done = async (result) => { await markDone(result); return { body: { received: true, result } }; };
 
   if (rec.status === 'confirmed' || rec.status === 'refunded') return done(`already ${rec.status}`);
 
@@ -56,7 +58,7 @@ async function applyPayment(deps, park, payments, event, recKey) {
   if (rec.status === 'held') {
     await newbook.confirmBooking(rec.booking_ref, { payment }); // throws -> 500 -> provider retries
     rec.status = 'confirmed'; rec.paid_ms = deps.now(); rec.payment = payment;
-    await deps.store.set(recKey, rec);
+    await saveBooking(deps.store, rec);
     await notifyPaid(deps, park, rec, event);
     return done('confirmed');
   }
@@ -75,14 +77,14 @@ async function applyPayment(deps, park, payments, event, recKey) {
   }
   if (rebooked) {
     rec.status = 'confirmed'; rec.paid_ms = deps.now(); rec.payment = payment; rec.rebooked_as = rebooked.booking_id;
-    await deps.store.set(recKey, rec);
+    await saveBooking(deps.store, rec);
     await notifyPaid(deps, park, { ...rec, booking_ref: rebooked.booking_id }, event);
     await alertStaff(deps, park, { kind: 'late_payment_rebooked', summary: `Payment arrived after the hold on ${rec.booking_ref} expired; site was still free so it was re-booked as ${rebooked.booking_id}.` });
     return done('rebooked after late payment');
   }
   await payments.refund({ payment_id: event.payment_id, amount_cents: event.amount_cents, reason: 'hold expired and site no longer available' });
   rec.status = 'refunded'; rec.refunded_ms = deps.now();
-  await deps.store.set(recKey, rec);
+  await saveBooking(deps.store, rec);
   try { await sendSms(deps, park, rec.mobile, SMS.refunded({ park, booking: { ...rec, site_name: rec.site_name } }), 'refund_notice', rec.call_sid); } catch (err) { deps.logger.warn('refund_sms_failed', { error: err.message }); }
   await alertStaff(deps, park, { kind: 'late_payment_refunded', summary: `Payment for ${rec.booking_ref} arrived after expiry and ${short(rec.site_name)} was taken; refunded ${event.amount_cents} cents. Customer ${rec.guest && rec.guest.name} ${rec.mobile}.` });
   return done('refunded: late payment, site unavailable');
