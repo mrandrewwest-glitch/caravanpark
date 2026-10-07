@@ -22,6 +22,19 @@ Design docs: [booking](docs/BOOKING-REQUIREMENTS.md) · [modes, SMS payments, pr
 
 Pricing model (decided): **$100/month + $3 per answered call**, no commission. Parks' payments go straight to their own payment account; OnSite never holds funds.
 
+## Try it: the interactive demo
+
+```bash
+npm install
+npm run demo                 # you play the caller
+npm run demo -- --auto       # or watch a complete booking play out
+npm run demo -- --full --hold 30     # a park whose staff can take live transfers, 30 minute holds
+```
+
+You type what the caller says; OnSite replies, and you also see what happens behind the scenes: the **texts** it sends (payment link, confirmation, reminders), the **alerts** to the park's staff, and the booking in the (mock) NewBook. Commands: `/pay` (the caller pays the link and the booking confirms), `/wait 30` (fast-forward: reminders, then unpaid holds expire), `/state`, `/new` (new call), `/phone +614...`, `/hold 15`, `/mode full|diversion`, `/help`, `/quit`. It ends with the park's usage statement ($100 + $3 per answered call). Try: *"Hi, any sites next weekend for 4 of us with a dog?"*, then "Site 12 please", your name, "yes", "yes, go ahead", then `/pay`.
+
+Nothing real is sent: NewBook, texts and payments are mocks. Without `ANTHROPIC_API_KEY` Claude is the offline stand-in, which understands these example phrases but not free speech; put a key in `.env` to talk to real Claude.
+
 ## Run locally
 
 ```bash
@@ -65,13 +78,13 @@ Environment: `STORE_BACKEND` (`memory` default | `dynamodb`), `DYNAMODB_TABLE`, 
 ## Tests
 
 ```bash
-npm test                      # everything below, in-memory store + mock NewBook (287 checks)
-npm run test:dynamo           # the same suites with every store operation going to DynamoDB (dynalite), 223 checks
+npm test                      # everything below, in-memory store + mock NewBook (294 checks)
+npm run test:dynamo           # the same suites with every store operation going to DynamoDB (dynalite), 230 checks
 npm run test:scenario-1       # brief scenarios 1-4: availability / clarification / pet-friendly / escalation
 npm run test:extra            # multi-turn, failures, timeout, concurrency, Lambda wrapper, live-client parsing
 npm run test:platform         # booking, holds, payments, safety, messages, parks, billing, resilience
 npm run test:newbook          # NewBook REST client against a fake NewBook server (protocol, mapping, bookings, config, probe script)
-npm run test:rest             # the scenario + platform suites with every NewBook call going through the REST client (149 checks)
+npm run test:rest             # the scenario + platform suites with every NewBook call going through the REST client (156 checks)
 npm run test:all-backends     # every combination: memory/DynamoDB store x mock/REST NewBook
 npm run test:booking          # (also :holds :payments :safety :messages :parks :billing :resilience :containers)
 npm run test:store            # store contract (memory vs DynamoDB), DynamoDB contention/multi-container/leases, repos, sam.yaml drift
@@ -173,7 +186,7 @@ Prints a PASS/FAIL checklist for each assumption and exits non-zero on any failu
 
 ## Files
 
-`index.js` wiring/server · `lambda.js` Lambda entry (+ jobs) · `dialpad-handler.js` webhooks · `conversation-logic.js` routing, escalation, deadline · `booking-flow.js` booking + message-taking · `payment-handler.js` · `jobs.js` hold expiry · `ledger.js` usage/billing · `parks.js` multi-park registry · `messages.js` wording · `comms.js` · `claude-client.js` live · `claude-stub.js` offline · `newbook-rest-client.js` real NewBook client · `secrets.js` · `scripts/newbook-probe.js` · `test-newbook-server.js` fake NewBook · `newbook-client.js` (mock), `sms-provider.js`, `payment-provider.js`, `notifier.js` mocks · `state-store.js` (interface + in-memory) · `dynamo-store.js` · `repos.js` keys/retention/indexes · `redact.js` · `util.js` · `dates.js` · `admin.js` · `tests.js`, `tests-platform.js`, `tests-store.js`, `test-helpers.js`, `test-dynamo.js` · `sam.yaml` · `parks.example.json` · `test-logs/`
+`demo.js` interactive demo · `index.js` wiring/server · `lambda.js` Lambda entry (+ jobs) · `dialpad-handler.js` webhooks · `conversation-logic.js` routing, escalation, deadline · `booking-flow.js` booking + message-taking · `payment-handler.js` · `jobs.js` hold expiry · `ledger.js` usage/billing · `parks.js` multi-park registry · `messages.js` wording · `comms.js` · `claude-client.js` live · `claude-stub.js` offline · `newbook-rest-client.js` real NewBook client · `secrets.js` · `scripts/newbook-probe.js` · `test-newbook-server.js` fake NewBook · `newbook-client.js` (mock), `sms-provider.js`, `payment-provider.js`, `notifier.js` mocks · `state-store.js` (interface + in-memory) · `dynamo-store.js` · `repos.js` keys/retention/indexes · `redact.js` · `util.js` · `dates.js` · `admin.js` · `tests.js`, `tests-platform.js`, `tests-store.js`, `test-helpers.js`, `test-dynamo.js` · `sam.yaml` · `parks.example.json` · `test-logs/`
 
 ## Test logs (stub Claude, all providers mocked)
 
@@ -184,7 +197,7 @@ Scenario 1: simple availability check: PASS (7/7 checks)
 Scenario 2: needs clarification: PASS (5/5 checks)
 Scenario 3: pet-friendly request: PASS (8/8 checks)
 Scenario 4: escalation (booking intent): PASS (4/4 checks)
-Extra: multi-turn, failure modes, concurrency, Lambda wrapper: PASS (23/23 checks)
+Extra: multi-turn, failure modes, concurrency, Lambda wrapper: PASS (30/30 checks)
 booking: PASS (16/16 checks)
 holds: PASS (15/15 checks)
 payments: PASS (13/13 checks)

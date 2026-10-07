@@ -274,7 +274,7 @@ async function advanceMessageFlow(ctx, lead) {
   if (textable) {
     try { await sendSms(deps, park, textable, SMS.messageTaken({ park, name: f.name }), 'message_taken', call.call_sid); } catch (err) { deps.logger.warn('message_ack_sms_failed', { error: err.message }); }
   }
-  await alertStaff(deps, park, { kind: 'callback_requested', summary: `Call back ${f.name} on ${f.number}. Reason: ${f.reason}. ${record.summary}`, message_id: id });
+  await alertStaff(deps, park, { kind: 'callback_requested', summary: `Call back ${f.name} on ${f.number}. ${record.summary}`, message_id: id });
   return ctx.finish({
     text: `Thanks ${f.name}, I've passed that on and the team will call you back ${park.staff.callback_promise}. Thanks for calling!`,
     decision: 'message: taken',

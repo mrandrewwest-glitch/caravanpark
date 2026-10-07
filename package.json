@@ -29,7 +29,8 @@
     "test:containers": "node tests-platform.js containers",
     "test:newbook": "node tests-newbook.js all",
     "test:rest": "NEWBOOK=rest node tests.js all && NEWBOOK=rest node tests-platform.js all",
-    "test:all-backends": "npm test && npm run test:rest && STORE=dynamo NEWBOOK=rest node tests.js all && STORE=dynamo NEWBOOK=rest node tests-platform.js all && npm run test:dynamo"
+    "test:all-backends": "npm test && npm run test:rest && STORE=dynamo NEWBOOK=rest node tests.js all && STORE=dynamo NEWBOOK=rest node tests-platform.js all && npm run test:dynamo",
+    "demo": "node demo.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",

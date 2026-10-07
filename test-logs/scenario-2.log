@@ -10,7 +10,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    clarify: no dates
 [ai reply]    "When are you thinking of coming?"
 [dialpad out] {"response_text":"When are you thinking of coming?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_002","turn":1,"status":"gathering_info","park_id":"friend-caravan-park"}}
-[latency]     42 ms (budget 3000 ms)
+[latency]     41 ms (budget 3000 ms)
   PASS  low confidence / needs clarification
   PASS  asks when they are coming
   PASS  NewBook NOT queried
