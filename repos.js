@@ -32,11 +32,36 @@ const keys = {
 // ---- Bookings: sparse index "bookings#held" ordered by hold expiry, only while status is 'held' ----
 const bookingOpts = (rec) => ({
   ttlSeconds: TTL.bookings,
-  index: rec.status === 'held' ? { gsi1: { pk: 'bookings#held', sk: pad(rec.hold_expires_ms) } } : undefined,
+  index: {
+    gsi2: { pk: `bookings#${rec.park_id}`, sk: pad(rec.created_ms) }, // every booking, per park, by creation time (owner portal)
+    ...(rec.status === 'held' ? { gsi1: { pk: 'bookings#held', sk: pad(rec.hold_expires_ms) } } : {}),
+  },
 });
 const saveBooking = (store, rec) => store.set(keys.booking(rec.park_id, rec.booking_ref), rec, bookingOpts(rec));
 const getBooking = (store, parkId, ref) => store.get(keys.booking(parkId, ref));
 const heldBookings = (store) => store.query('gsi1', 'bookings#held');
+const parkBookings = (store, parkId, fromMs = 0, toMs = 9e14) => store.query('gsi2', `bookings#${parkId}`, { skMin: pad(fromMs), skMax: pad(toMs) });
+
+// ---- Take-a-message records, per park by creation time ----
+const messageOpts = (rec) => ({ ttlSeconds: TTL.messages, index: { gsi2: { pk: `messages#${rec.park_id}`, sk: pad(rec.created_ms) } } });
+const saveMessage = (store, rec) => store.set(keys.message(rec.park_id, rec.call_sid), rec, messageOpts(rec));
+const getMessage = (store, parkId, callSid) => store.get(keys.message(parkId, callSid));
+const parkMessages = (store, parkId) => store.query('gsi2', `messages#${parkId}`);
+
+// ---- Owner portal users (one record per sign-in email), listed per park ----
+const userKey = (email) => `users:${email}`;
+const userOpts = (rec) => ({ index: { gsi2: { pk: `users#${rec.park_id}`, sk: pad(rec.created_ms) } } });
+const saveUser = (store, rec) => store.set(userKey(rec.email), rec, userOpts(rec));
+const getUser = (store, email) => store.get(userKey(email));
+const parkUsers = (store, parkId) => store.query('gsi2', `users#${parkId}`);
+
+// ---- Audit trail of what owners did (sign-ins, settings changes), per park ----
+const AUDIT_TTL = 400 * DAY;
+const appendAudit = (store, parkId, entry, now = Date.now(), rand = Math.random().toString(36).slice(2, 8)) => {
+  const rec = { park_id: parkId, at: now, ...entry };
+  return store.set(`audit:${parkId}:${pad(now)}:${rand}`, rec, { ttlSeconds: AUDIT_TTL, index: { gsi2: { pk: `audit#${parkId}`, sk: pad(now) } } }).then(() => rec);
+};
+const parkAudit = (store, parkId, limit = 100) => store.query('gsi2', `audit#${parkId}`).then((rows) => rows.slice(-limit).reverse());
 
 // ---- Calls (billing ledger) ----
 // gsi2 "calls#<park>" by start time -> monthly statements. gsi1 "calls#open" by last activity ->
@@ -53,4 +78,4 @@ const updateCall = (store, sid, fn) => store.update(keys.call(sid), fn, callOpts
 const openCallsBefore = (store, beforeMs) => store.query('gsi1', 'calls#open', { skMax: pad(beforeMs) });
 const parkCalls = (store, parkId, fromMs, toMs) => store.query('gsi2', `calls#${parkId}`, { skMin: pad(fromMs), skMax: pad(toMs) });
 
-module.exports = { TTL, pad, keys, bookingOpts, callOpts, saveBooking, getBooking, heldBookings, getCall, updateCall, openCallsBefore, parkCalls };
+module.exports = { TTL, pad, keys, bookingOpts, callOpts, saveBooking, getBooking, heldBookings, parkBookings, saveMessage, getMessage, parkMessages, saveUser, getUser, parkUsers, userKey, appendAudit, parkAudit, getCall, updateCall, openCallsBefore, parkCalls };

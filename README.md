@@ -188,16 +188,27 @@ Prints a PASS/FAIL checklist for each assumption and exits non-zero on any failu
 5. **Site-level availability** (booking a specific site rather than a category) may need special registration; `unit_mode: "site"` exists but is unverified and unused.
 6. Error message wording (used to tell "site unavailable" from other failures; unknown failures take the safe lookup-then-hand-off path), the timezone of `generated_when`, and whether children need to be split from adults for correct rates.
 
+## Owner portal
+
+A website for park owners and staff at `/portal/`: overview, call log (time, caller, outcome, booking or message, summary; no transcripts), bookings, call-backs to tick off, billing statements with CSV download, settings, and an activity trail.
+
+- **Sign-in:** email plus a one-time 6-digit code (no passwords). Accounts are created by the operator via `POST /admin/portal-users` (several staff per park, same access). Codes are hashed, expire in 10 minutes, allow 5 attempts and work once; sign-in is rate limited per email and per IP; sessions last 12 hours and are re-checked against the user record on every request.
+- **Isolation:** the park always comes from the session, never from the request.
+- **Protections:** CSRF header and Origin check, strict CSP (no inline script), HttpOnly SameSite=Strict cookie (Secure in production), CSV formula neutralisation, text-only rendering, audit log of settings changes.
+- **Editable settings:** name, hold minutes, deposit %, mode, booking mode, max nights, call-back promise, staff alert numbers and emails. Everything else (NewBook credentials, billing rates) is operator-only.
+- **Try it:** `npm run portal:demo` seeds two parks with three months of history and shows the sign-in code on the page (demo mode only; refused in production). Tests: `npm run test:portal`.
+- **Not done:** SES sending is written but untested against real SES (verify a sender, set `PORTAL_FROM_EMAIL`); the portal has not been deployed or security reviewed by a third party.
+
 ## What's not built yet
 
 - **Real integrations:** running the NewBook REST client against a real instance (the client is written; the probe is the next step),  Dialpad's actual payload format and webhook auth (the `/phone-callback` and `/call-ended` endpoints are **unauthenticated**), an SMS provider, a payment provider (Stripe-style), staff alert channels.
 - **Real AWS:** the DynamoDB store has only run against `dynalite`. Not yet done: deploy the stack, run the suites against a real table (IAM, TTL actually deleting, GSI propagation delay, throttling, latency), and decide ledger retention. There is no data migration tool (nothing is live yet).
 - **Voice channel:** unverified that Dialpad can run a turn-by-turn voice conversation; a voice-capable telephony provider may be needed (see docs/MODES-AND-PAYMENTS.md).
-- Two-way SMS conversations, STOP handling on inbound, park self-service admin with real auth (admin routes are not exposed via API Gateway), live-Claude prompt tuning and latency measurement, cancel/modify flows, invoicing.
+- Two-way SMS conversations, STOP handling on inbound, (operator `/admin` routes are not exposed via API Gateway), live-Claude prompt tuning and latency measurement, cancel/modify flows, invoicing.
 
 ## Files
 
-`demo.js` terminal demo · `demo-web/` browser demo (`template.html`, `engine-entry.js`, shims) built by `scripts/build-demo-web.js` · `tests-demo-web.js` · `index.js` wiring/server · `lambda.js` Lambda entry (+ jobs) · `dialpad-handler.js` webhooks · `conversation-logic.js` routing, escalation, deadline · `booking-flow.js` booking + message-taking · `payment-handler.js` · `jobs.js` hold expiry · `ledger.js` usage/billing · `parks.js` multi-park registry · `messages.js` wording · `comms.js` · `claude-prompts.js` shared prompts and parsing · `claude-client.js` live · `claude-stub.js` offline · `newbook-rest-client.js` real NewBook client · `secrets.js` · `scripts/newbook-probe.js` · `test-newbook-server.js` fake NewBook · `newbook-client.js` (mock), `sms-provider.js`, `payment-provider.js`, `notifier.js` mocks · `state-store.js` (interface + in-memory) · `dynamo-store.js` · `repos.js` keys/retention/indexes · `redact.js` · `util.js` · `dates.js` · `admin.js` · `tests.js`, `tests-platform.js`, `tests-store.js`, `test-helpers.js`, `test-dynamo.js` · `sam.yaml` · `parks.example.json` · `test-logs/`
+`demo.js` terminal demo · `demo-web/` browser demo (`template.html`, `engine-entry.js`, shims) built by `scripts/build-demo-web.js` · `tests-demo-web.js` · `index.js` wiring/server · `lambda.js` Lambda entry (+ jobs) · `dialpad-handler.js` webhooks · `conversation-logic.js` routing, escalation, deadline · `booking-flow.js` booking + message-taking · `payment-handler.js` · `jobs.js` hold expiry · `ledger.js` usage/billing · `parks.js` multi-park registry · `messages.js` wording · `comms.js` · `claude-prompts.js` shared prompts and parsing · `claude-client.js` live · `claude-stub.js` offline · `newbook-rest-client.js` real NewBook client · `secrets.js` · `scripts/newbook-probe.js` · `test-newbook-server.js` fake NewBook · `newbook-client.js` (mock), `sms-provider.js`, `payment-provider.js`, `notifier.js` mocks · `state-store.js` (interface + in-memory) · `dynamo-store.js` · `repos.js` keys/retention/indexes · `redact.js` · `util.js` · `dates.js` · `admin.js` · `portal-auth.js` `portal-data.js` `portal-api.js` `emailer.js` `portal/` owner portal · `tests-portal.js` · `tests.js`, `tests-platform.js`, `tests-store.js`, `test-helpers.js`, `test-dynamo.js` · `sam.yaml` · `parks.example.json` · `test-logs/`
 
 ## Test logs (stub Claude, all providers mocked)
 

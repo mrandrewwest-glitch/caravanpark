@@ -17,6 +17,10 @@ const { createLedger } = require('./ledger');
 const { MemoryStore } = require('./state-store');
 const { DynamoStore } = require('./dynamo-store');
 const { createLogger } = require('./logger');
+const path = require('path');
+const { createPortalAuth } = require('./portal-auth');
+const { createMockEmailer, createSesEmailer } = require('./emailer');
+const { portalRouter, securityHeaders } = require('./portal-api');
 const { dateInZone } = require('./util');
 
 // STORE_BACKEND=dynamodb (+ DYNAMODB_TABLE, optional DYNAMODB_ENDPOINT for local) | memory (default; dev/tests only)
@@ -72,8 +76,13 @@ function buildDeps(overrides = {}) {
     }
   }
 
+  const emailer = overrides.emailer || (env.PORTAL_FROM_EMAIL ? createSesEmailer({ from: env.PORTAL_FROM_EMAIL }) : createMockEmailer());
+  const portalAuth = createPortalAuth({ store, emailer, registry, now, logger, devShowCode: overrides.portalDevShowCode ?? env.PORTAL_DEV_SHOW_CODE === 'true' });
+
   return {
     validateProviders,
+    emailer,
+    portalAuth,
     claude: overrides.claude || createClaudeClient(),
     store,
     logger,
@@ -109,6 +118,13 @@ function createApp(overrides = {}) {
   app.post('/call-ended', callEnded(deps));
   app.post('/payment-webhook', (req, res) => handlePaymentWebhook(req, res, deps));
   app.use('/admin', adminRouter(deps));
+
+  // Park owners' web portal: static pages + JSON API, with strict security headers (see portal-api.js).
+  if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || true);
+  const secure = overrides.portalSecure ?? process.env.NODE_ENV === 'production';
+  app.use('/portal', securityHeaders({ secure }));
+  app.use('/portal/api', portalRouter(deps, { secure }));
+  app.use('/portal', express.static(path.join(__dirname, 'portal'), { index: 'index.html', etag: true, maxAge: 0, setHeaders: (res) => res.set('Cache-Control', 'no-cache') }));
 
   // Mock Dialpad entry point: same pipeline, plus a debug trace; calls are flagged as tests
   // (never billable). Off in production.

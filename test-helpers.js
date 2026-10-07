@@ -74,7 +74,7 @@ async function start(overrides = {}) {
   const firstPark = await deps.registry.get(deps.registry.ids()[0]);
   const harnesses = rest ? Object.fromEntries(Object.entries(rest.fakes).map(([id, f]) => [id, harnessFor(f)])) : null;
   return {
-    app, deps, clock, request,
+    app, deps, clock, request, base,
     post: (path, body, headers) => request('POST', path, body, headers),
     admin: (method, path, body) => request(method, `/admin${path}`, body, { authorization: 'Bearer test-admin' }),
     newbook: harnesses ? harnesses[firstPark.id] : deps.providers.newbook(firstPark),
