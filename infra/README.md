@@ -2,7 +2,7 @@
 
 `onsite-container.yaml` creates: ECR repository (where the OnSite image is stored), ECS Fargate service (one task, runs `server.js` plus the 5-minute jobs), HTTPS Application Load Balancer with an ACM certificate, the DynamoDB table (retained on stack delete), one Secrets Manager secret, and an SES sender identity.
 
-DNS is at GoDaddy (domain `papilots.co`), so two records are added there by hand. Address used: `calls.onsite.papilots.co`.
+DNS is at GoDaddy (domain `papilots.co`), so two records are added there by hand. Address used: `onsite.papilots.co`.
 
 **Not yet deployed or validated against real AWS** (the template was written without AWS access).
 
@@ -15,12 +15,12 @@ DNS is at GoDaddy (domain `papilots.co`), so two records are added there by hand
    ```
    aws cloudformation deploy --region ap-southeast-2 --stack-name onsite \
      --template-file infra/onsite-container.yaml --capabilities CAPABILITY_IAM \
-     --parameter-overrides DomainName=calls.onsite.papilots.co VpcId=vpc-... \
+     --parameter-overrides DomainName=onsite.papilots.co VpcId=vpc-... \
        PublicSubnetIds=subnet-a,subnet-b PortalFromEmail=you@yourdomain DesiredCount=0
    ```
-5. **While step 4 is waiting** (it pauses on the certificate): AWS Certificate Manager console > the certificate for `calls.onsite.papilots.co` shows a CNAME name and value. Add that CNAME at GoDaddy (DNS > Add record; GoDaddy appends `.papilots.co` itself, so remove it from the name AWS shows). The stack continues within minutes.
+5. **While step 4 is waiting** (it pauses on the certificate): AWS Certificate Manager console > the certificate for `onsite.papilots.co` shows a CNAME name and value. Add that CNAME at GoDaddy (DNS > Add record; GoDaddy appends `.papilots.co` itself, so remove it from the name AWS shows). The stack continues within minutes.
 6. **SES:** click the verification link sent to `PortalFromEmail`. New SES accounts are in the sandbox: portal codes only reach verified addresses until you request production access.
-7. **Point the domain at the load balancer:** read the `LoadBalancerDnsName` output (`aws cloudformation describe-stacks --stack-name onsite --query 'Stacks[0].Outputs'`), then at GoDaddy add a CNAME: name `calls.onsite`, value that DNS name.
+7. **Point the domain at the load balancer:** read the `LoadBalancerDnsName` output (`aws cloudformation describe-stacks --stack-name onsite --query 'Stacks[0].Outputs'`), then at GoDaddy add a CNAME: name `onsite`, value that DNS name.
 8. **Put the real keys in the secret** (never in git or parameters). CloudFormation already generated `admin_token` in it and `put-secret-value` replaces the whole secret, so keep that key:
    ```
    TOKEN=$(aws secretsmanager get-secret-value --region ap-southeast-2 --secret-id onsite/prod --query SecretString --output text | jq -r .admin_token)
@@ -34,7 +34,7 @@ DNS is at GoDaddy (domain `papilots.co`), so two records are added there by hand
    docker push <account>.dkr.ecr.ap-southeast-2.amazonaws.com/onsite:latest
    ```
    then re-run the step 4 command with `DesiredCount=1`. Per-park config (`parks.json`, see `parks.example.json`) is baked into the image: create it before building (it holds references to secrets, never the secrets).
-10. **Twilio:** point each number's "A call comes in" at `https://calls.onsite.papilots.co/twilio/voice` and "Call status changes" at `https://calls.onsite.papilots.co/twilio/status`.
+10. **Twilio:** point each number's "A call comes in" at `https://onsite.papilots.co/twilio/voice` and "Call status changes" at `https://onsite.papilots.co/twilio/status`.
 
 ## Notes
 

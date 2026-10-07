@@ -7,7 +7,7 @@ Description: >-
 Parameters:
   DomainName:
     Type: String
-    Description: Public host name Twilio calls, e.g. calls.onsite.papilots.co (becomes PUBLIC_BASE_URL). DNS is managed outside AWS (GoDaddy).
+    Description: Public host name Twilio calls, e.g. onsite.papilots.co (becomes PUBLIC_BASE_URL). DNS is managed outside AWS (GoDaddy).
   VpcId:
     Type: AWS::EC2::VPC::Id
   PublicSubnetIds:
