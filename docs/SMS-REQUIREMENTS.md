@@ -18,6 +18,8 @@ The AI does **not** create bookings: booking intent transfers to a human, and th
 | **A. Enquiry summary** | AI call ends after showing availability, or a transfer happens | "Hi, thanks for calling Friends Caravan Park. You asked about Oct 10–15, 4 guests, with a dog. Sites available: Site 12 $185/night, Site 5 $250/night. This is NOT a booking yet — our team will confirm." | Nothing new |
 | **B. Booking confirmation** | Staff create the booking in NewBook | "Your booking is confirmed: Site 12, Oct 10–15, $925 total…" | NewBook booking read/webhook, or a staff trigger (see Q2) |
 
+**Update:** AI-created bookings are now planned (see `BOOKING-REQUIREMENTS.md`); message B is then triggered by a successful NewBook create, which answers Q2 below.
+
 **[ASSUMPTION]** Build A first. B only after we have a reliable trigger from NewBook or staff; the AI must never text a message that reads as a confirmed booking unless NewBook says it is.
 
 ## 3. Channel design
