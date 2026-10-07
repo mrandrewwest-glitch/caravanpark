@@ -6,7 +6,7 @@ Express service that receives Dialpad transcript webhooks, extracts booking inte
 
 > **About the logs below:** they were produced with the **offline stub Claude client** (`claude-stub.js`, a rule-based stand-in) because no `ANTHROPIC_API_KEY` was available in the build environment. They prove the connector logic, escalation, error handling and latency plumbing. They do **not** show real Claude extraction quality or reply wording. Run the scenarios with your key (below) to see live behaviour; the live client itself is only covered by a fake-SDK test (E11).
 
-SMS (outbound summaries + two-way text conversations) is specified in [docs/SMS-REQUIREMENTS.md](docs/SMS-REQUIREMENTS.md); not built yet. AI-created bookings through the NewBook API are specified in [docs/BOOKING-REQUIREMENTS.md](docs/BOOKING-REQUIREMENTS.md).
+SMS (outbound summaries + two-way text conversations) is specified in [docs/SMS-REQUIREMENTS.md](docs/SMS-REQUIREMENTS.md); not built yet. Operating modes (diversion vs full service), SMS payment links and commission are in [docs/MODES-AND-PAYMENTS.md](docs/MODES-AND-PAYMENTS.md). AI-created bookings through the NewBook API are specified in [docs/BOOKING-REQUIREMENTS.md](docs/BOOKING-REQUIREMENTS.md).
 
 ## Run locally
 

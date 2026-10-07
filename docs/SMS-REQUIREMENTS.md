@@ -7,7 +7,9 @@ Status: **requirements only, nothing built yet.** Items marked **[ASSUMPTION]** 
 1. **Outbound SMS after a call:** text the caller a summary so they have the details in writing.
 2. **Two-way SMS conversations:** a customer texts the park's number ("any sites free next weekend?") and the AI replies, using the same availability logic as the phone channel, escalating to staff when needed.
 
-Out of scope for now: taking payment (decided to hold off), MMS, WhatsApp, multi-language.
+3. **Payment links by SMS** (see `MODES-AND-PAYMENTS.md`): the AI texts a secure hosted payment link after creating a held booking, then a confirmation once paid.
+
+Out of scope for now: taking card details by voice, MMS, WhatsApp, multi-language.
 
 ## 2. What "confirm the booking" means (needs a decision)
 
@@ -38,7 +40,7 @@ Today the code is voice-shaped. Changes needed:
 
 `Provider webhook → POST /sms-callback → verify signature → dedupe → load thread → extract intent → decide (reply / ask / escalate) → send reply via provider API → store`
 
-- Escalation on SMS = **notify staff** (email and/or SMS to the owner's number, with summary + thread link) and send the customer "Thanks, our team will reply shortly." **[ASSUMPTION]** After handoff, the AI stops replying on that thread until staff release it.
+- Escalation on SMS = **notify staff** (in diversion mode nobody may be free, so this is take-a-message by default) (email and/or SMS to the owner's number, with summary + thread link) and send the customer "Thanks, our team will reply shortly." **[ASSUMPTION]** After handoff, the AI stops replying on that thread until staff release it.
 - Business hours: **[ASSUMPTION]** AI replies 24/7; escalations are queued for staff with the message "we'll reply when the office opens" outside hours (hours configurable per park).
 - Keywords: `STOP` / `UNSUBSCRIBE` must opt the number out immediately and confirm once; `HELP` returns contact info. Honoured at the provider layer and in our own suppression list.
 

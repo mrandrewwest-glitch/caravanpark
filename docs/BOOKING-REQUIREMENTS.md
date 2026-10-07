@@ -5,7 +5,7 @@ Status: **requirements only.** Supersedes the brief's rule that booking intent a
 ## 1. Goal
 Callers and SMS customers can complete a booking with the AI. The AI creates the booking in NewBook through its API, then sends a confirmation SMS (this resolves "message B" in `SMS-REQUIREMENTS.md`: the trigger is a successful API create).
 
-Payment is **out of scope** for now, so bookings are created **unpaid**. How an unpaid booking is treated is the main business decision (Q1).
+**Update:** payment by SMS link is now in scope (see `MODES-AND-PAYMENTS.md`): bookings are created as provisional holds, confirmed when payment succeeds. The L1/L2 autonomy levels below refine what "confirmed" means and when staff review.
 
 ## 2. Why this needs more care than availability
 Reading availability is harmless. Creating a booking is a state change in the park's system of record, made from error-prone input (speech-to-text names, dates, phone numbers) by an LLM. The requirements below exist to make wrong or duplicate bookings hard to create and easy to undo.
