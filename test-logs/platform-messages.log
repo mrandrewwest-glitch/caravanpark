@@ -1,0 +1,45 @@
+OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | SMS, payments, notifier: MOCK | store: in-memory | newbook: in-process mock | pinned date: 2026-09-30
+
+==================== Handoff strategy: take-a-message (diversion) vs live transfer (full) ====================
+
+[M1] diversion park, unhappy caller
+    caller: "This is terrible, I want to complain about my last stay"
+    ai:     "I'm sorry to hear that. The team is tied up right now, but I'll make sure they call you back. Can I take your name?"  [TAKE MESSAGE]
+  PASS  no live transfer; says the team is tied up and asks for a name
+    caller: "Jo Smith"
+    ai:     "They'll call you back on the number you're calling from, ending 6 7 8. Is that right?"  [TAKE MESSAGE]
+  PASS  asks to confirm the callback number
+    caller: "Yes"
+    ai:     "Thanks Jo Smith, I've passed that on and the team will call you back within the hour. Thanks for calling!"  [TAKE MESSAGE]
+  PASS  message taken, caller told when to expect a call (park promise)
+  PASS  message record saved for staff
+  PASS  caller SMS acknowledgement + staff alert
+    caller: "Thanks"
+    ai:     "I've passed your message on and the team will be in touch. Thanks for calling!"
+  PASS  later turns do not create a second message
+
+[M2] different callback number (landline, so no SMS)
+    caller: "Can I speak to someone please?"
+    ai:     "The team is tied up right now, but I'll make sure they call you back. Can I take your name?"  [TAKE MESSAGE]
+    caller: "Pat Jones"
+    ai:     "They'll call you back on the number you're calling from, ending 6 7 8. Is that right?"  [TAKE MESSAGE]
+    caller: "No"
+    ai:     "What's the best number for them to call you back on?"  [TAKE MESSAGE]
+    caller: "02 9876 5432"
+    ai:     "Thanks Pat Jones, I've passed that on and the team will call you back within the hour. Thanks for calling!"  [TAKE MESSAGE]
+  PASS  callback number taken as given; no SMS to a landline
+
+[M3] full-service park, same complaint
+    caller: "This is terrible, I want to complain about my last stay"
+    ai:     "I'm sorry to hear that. Let me get one of our team to help you right away."  [LIVE TRANSFER]
+  PASS  live transfer to staff, no message flow
+
+[M4] booking request when the park has AI booking off
+    caller: "I want to book Site 12 for October 10th"
+    ai:     "Perfect, let me connect you with our team to confirm that."  [LIVE TRANSFER]
+  PASS  handoff-mode park still transfers booking requests (brief scenario 4)
+
+>>> messages: PASS (9/9 checks)
+
+==================== SUMMARY ====================
+PASS  messages

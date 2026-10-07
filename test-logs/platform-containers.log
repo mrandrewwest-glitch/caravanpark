@@ -1,0 +1,34 @@
+OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | SMS, payments, notifier: MOCK | store: in-memory | newbook: in-process mock | pinned date: 2026-09-30
+
+==================== Two app instances (separate "Lambda containers") sharing one DynamoDB table ====================
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  a booking conversation alternating between containers completes with one NewBook booking
+  PASS  the same payment webhook delivered to both containers at once is applied exactly once
+    caller: "Hi, any sites Dec 10 to 14 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for December 10th to December 14th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Drew Fox"
+    ai:     "I'll text the payment link to the number you're calling from, ending 4 4 4. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, December 10th to December 14th, 4 guests with a pet, under the name Drew Fox. The total is $740. I'll hold it for 45 minutes and text a secure payment link to the number ending 4 4 4. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 4 4 4. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  payment on one container racing the expiry job on the other ends consistent (paid, one confirmed booking)
+    caller: "Any sites Oct 10 to 15?"
+    ai:     "Good news, we've got 4 sites for October 10th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Which one would you like me to book?"
+  PASS  billing ledger written by one container is visible from the other
+
+>>> containers: PASS (4/4 checks)
+
+==================== SUMMARY ====================
+PASS  containers

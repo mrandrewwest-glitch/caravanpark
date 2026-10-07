@@ -1,0 +1,18 @@
+[
+  {
+    "id": "friend-caravan-park",
+    "name": "Friends Caravan Park",
+    "timezone": "Australia/Sydney",
+    "numbers": ["+61290000001"],
+    "sms_from": "+61290000001",
+    "mode": "diversion",
+    "booking_mode": "ai_booking",
+    "hold_minutes": 60,
+    "deposit_percent": 100,
+    "limits": { "max_nights": 14, "max_advance_days": 365, "allow_same_day": false },
+    "staff": { "alert_numbers": ["+61400000000"], "alert_emails": ["owner@example.com"], "callback_promise": "within the hour" },
+    "billing": { "monthly_fee": 100, "per_call": 3, "currency": "AUD", "min_call_seconds": 15 },
+    "newbook": { "type": "mock" },
+    "payments": { "type": "mock", "webhook_secret": "replace-me (real secrets belong in Secrets Manager)" }
+  }
+]

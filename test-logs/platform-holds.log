@@ -1,0 +1,53 @@
+OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | SMS, payments, notifier: MOCK | store: in-memory | newbook: in-process mock | pinned date: 2026-09-30
+
+==================== Hold expiry: per-park and adjustable, reminder, release, idempotent job ====================
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 45 minutes and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got one site that welcome pets for October 10th to October 15th. Site 1 is $100 a night with power and water. Which one would you like me to book?"
+    caller: "Site 1 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 1, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $500. I'll hold it for 2 hours and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 1 for you for 2 hours and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  lakeside holds for its configured 45 minutes
+  PASS  riverbend holds for its configured 120 minutes
+  PASS  read-back to the caller states the park-specific hold
+  PASS  reminder SMS goes out at half-time for the 45 min hold only
+  PASS  expired hold is released in NewBook and the caller is told
+  PASS  released site is bookable again
+  PASS  the 120 minute hold is untouched
+  PASS  running the job again does not re-release or re-text
+  PASS  park can change its hold time (applies to new holds)
+  PASS  another park is unaffected
+  PASS  hold time outside 15..1440 minutes is rejected
+  PASS  non-adjustable settings (e.g. billing) are rejected
+  PASS  admin API requires the token
+  PASS  admin never echoes payment credentials
+    caller: "Hi, any sites Nov 3 to 6 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for November 3rd to November 6th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, November 3rd to November 6th, 4 guests with a pet, under the name Sam Taylor. The total is $555. I'll hold it for 90 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "All done. I've held Site 12 for you for 90 minutes and I'm texting a secure payment link to the number ending 6 7 8. Once it's paid, your booking is confirmed. Is there anything else I can help with?"
+  PASS  a new booking uses the new 90 minute hold
+
+>>> holds: PASS (15/15 checks)
+
+==================== SUMMARY ====================
+PASS  holds

@@ -1,8 +1,4 @@
-
-> onsite-phone-receptionist@0.1.0 test
-> node tests.js all && node tests-platform.js all && node tests-store.js all && node tests-newbook.js all
-
-OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) | store: in-memory | newbook: in-process mock | pinned date: 2026-09-30
+OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) | store: DynamoDB (dynalite) | newbook: REST client + fake NewBook server | pinned date: 2026-09-30
 
 ==================== Scenario 1: simple availability check ====================
 
@@ -14,7 +10,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    respond: availability
 [ai reply]    "Good news, we've got 5 sites for October 9th to October 11th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?"
 [dialpad out] {"response_text":"Good news, we've got 5 sites for October 9th to October 11th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_001","turn":1,"status":"showing_availability","park_id":"friend-caravan-park"}}
-[latency]     93 ms (budget 3000 ms)
+[latency]     59 ms (budget 3000 ms)
   PASS  extracted a check-in and a later check-out (weekend, 2 nights)
   PASS  extraction confidence >= 0.8
   PASS  queried mock NewBook once
@@ -35,7 +31,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    clarify: no dates
 [ai reply]    "When are you thinking of coming?"
 [dialpad out] {"response_text":"When are you thinking of coming?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_002","turn":1,"status":"gathering_info","park_id":"friend-caravan-park"}}
-[latency]     6 ms (budget 3000 ms)
+[latency]     12 ms (budget 3000 ms)
   PASS  low confidence / needs clarification
   PASS  asks when they are coming
   PASS  NewBook NOT queried
@@ -54,7 +50,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    respond: availability
 [ai reply]    "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with a playground nearby, power and water, and Site 5 is $250 a night with power, water and wifi. Would one of those suit you?"
 [dialpad out] {"response_text":"Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with a playground nearby, power and water, and Site 5 is $250 a night with power, water and wifi. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_003","turn":1,"status":"showing_availability","park_id":"friend-caravan-park"}}
-[latency]     54 ms (budget 3000 ms)
+[latency]     18 ms (budget 3000 ms)
   PASS  dates 2026-10-10 to 2026-10-15
   PASS  has_pet true
   PASS  num_guests 3 or 4
@@ -77,7 +73,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [ai reply]    "Perfect, let me connect you with our team to confirm that."
 [dialpad out] {"response_text":"Perfect, let me connect you with our team to confirm that.","transfer_to_human":true,"metadata":{"call_sid":"mock_call_004","turn":1,"status":"ready_to_transfer","park_id":"friend-caravan-park"}}
 [handoff]     Customer: from 2026-10-10. Reason for transfer: wants to book.
-[latency]     2 ms (budget 3000 ms)
+[latency]     10 ms (budget 3000 ms)
   PASS  transfer_to_human true
   PASS  NewBook NOT queried
   PASS  handoff details include phone + conversation history
@@ -97,7 +93,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    clarify: no dates
 [ai reply]    "When are you thinking of coming?"
 [dialpad out] {"response_text":"When are you thinking of coming?","transfer_to_human":false,"metadata":{"call_sid":"x1","turn":1,"status":"gathering_info","park_id":"friend-caravan-park"}}
-[latency]     4 ms (budget 3000 ms)
+[latency]     11 ms (budget 3000 ms)
 
 --- E1 turn 2 ---
 [claude_mode] stub
@@ -107,7 +103,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    respond: availability
 [ai reply]    "Good news, we've got 5 sites for October 12th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?"
 [dialpad out] {"response_text":"Good news, we've got 5 sites for October 12th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"x1","turn":2,"status":"showing_availability","park_id":"friend-caravan-park"}}
-[latency]     52 ms (budget 3000 ms)
+[latency]     15 ms (budget 3000 ms)
   PASS  E1 turn counter increments and availability answered
   PASS  E1 checkout computed from nights (Oct 12 -> Oct 15)
 
@@ -122,7 +118,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [ai reply]    "I'm having trouble getting that, so let me put you through to our team."
 [dialpad out] {"response_text":"I'm having trouble getting that, so let me put you through to our team.","transfer_to_human":true,"metadata":{"call_sid":"x2","turn":3,"status":"ready_to_transfer","park_id":"friend-caravan-park"}}
 [handoff]     Reason for transfer: AI could not understand after 2 clarifications.
-[latency]     3 ms (budget 3000 ms)
+[latency]     9 ms (budget 3000 ms)
   PASS  E2 transfers after 2 failed clarifications
 
 [E3] low transcript confidence skips Claude
@@ -135,7 +131,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    clarify: low transcript confidence
 [ai reply]    "Sorry, I didn't quite catch that. Could you say that again?"
 [dialpad out] {"response_text":"Sorry, I didn't quite catch that. Could you say that again?","transfer_to_human":false,"metadata":{"call_sid":"x3","turn":1,"status":"gathering_info","park_id":"friend-caravan-park"}}
-[latency]     5 ms (budget 3000 ms)
+[latency]     9 ms (budget 3000 ms)
   PASS  E3 asks caller to repeat, extraction skipped
 
 [E4] NewBook outage, no cache
@@ -149,7 +145,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [ai reply]    "We can't check availability right now, let me get someone for you."
 [dialpad out] {"response_text":"We can't check availability right now, let me get someone for you.","transfer_to_human":true,"metadata":{"call_sid":"x4","turn":1,"status":"ready_to_transfer","park_id":"friend-caravan-park"}}
 [handoff]     Customer: 2026-10-10 to 2026-10-15. Reason for transfer: availability system down.
-[latency]     52 ms (budget 3000 ms)
+[latency]     59 ms (budget 3000 ms)
   PASS  E4 escalates with outage message
 
 [E5] Claude API failure
@@ -162,7 +158,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    fallback: Claude 529 overloaded
 [ai reply]    "Our system is busy, let me transfer you to our team."
 [dialpad out] {"response_text":"Our system is busy, let me transfer you to our team.","transfer_to_human":true,"metadata":{"call_sid":"x5","turn":null,"status":"ready_to_transfer","error":"Claude 529 overloaded","park_id":"friend-caravan-park"}}
-[latency]     11 ms (budget 3000 ms)
+[latency]     8 ms (budget 3000 ms)
   PASS  E5 returns the safe fallback + transfer
 
 [E6] hung Claude call hits the hard deadline
@@ -175,7 +171,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    fallback: deadline exceeded
 [ai reply]    "Our system is busy, let me transfer you to our team."
 [dialpad out] {"response_text":"Our system is busy, let me transfer you to our team.","transfer_to_human":true,"metadata":{"call_sid":"x6","turn":null,"status":"ready_to_transfer","error":"deadline exceeded","park_id":"friend-caravan-park"}}
-[latency]     603 ms (budget 3000 ms)
+[latency]     622 ms (budget 3000 ms)
   PASS  E6 falls back within ~1s instead of hanging
 
 [E7] spam ends the call; complaint transfers; too-big party finds nothing
@@ -188,7 +184,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    end: spam/bot caller
 [ai reply]    "Thanks for calling, have a great day."
 [dialpad out] {"response_text":"Thanks for calling, have a great day.","transfer_to_human":false,"metadata":{"call_sid":"x7a","turn":1,"status":"ended","park_id":"friend-caravan-park"}}
-[latency]     2 ms (budget 3000 ms)
+[latency]     9 ms (budget 3000 ms)
   PASS  E7 spam: end_call, no transfer
   PASS  E7 complaint transfers
 
@@ -201,7 +197,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [ai reply]    "I'm sorry, I can't find anything available that suits those details. Let me connect you with our team to see what we can do."
 [dialpad out] {"response_text":"I'm sorry, I can't find anything available that suits those details. Let me connect you with our team to see what we can do.","transfer_to_human":true,"metadata":{"call_sid":"x7c","turn":1,"status":"ready_to_transfer","park_id":"friend-caravan-park"}}
 [handoff]     Customer: 10 guests, 2026-10-10 to 2026-10-15. Reason for transfer: no availability for requested dates/needs.
-[latency]     52 ms (budget 3000 ms)
+[latency]     16 ms (budget 3000 ms)
   PASS  E7 no suitable availability transfers
   PASS  E7 out-of-scope transfers
 
@@ -210,7 +206,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
   PASS  E8 /phone-callback does not leak the debug trace
 
 [E9] 30 concurrent calls
-  30 calls in 86 ms, slowest 83 ms
+  30 calls in 269 ms, slowest 267 ms
   PASS  E9 all 30 succeeded, none transferred
   PASS  E9 slowest under 3000 ms
 
@@ -235,7 +231,7 @@ PASS  Scenario 2: needs clarification
 PASS  Scenario 3: pet-friendly request
 PASS  Scenario 4: escalation (booking intent)
 PASS  Extra: multi-turn, failure modes, concurrency, Lambda wrapper
-OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | SMS, payments, notifier: MOCK | store: in-memory | newbook: in-process mock | pinned date: 2026-09-30
+OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | SMS, payments, notifier: MOCK | store: DynamoDB (dynalite) | newbook: REST client + fake NewBook server | pinned date: 2026-09-30
 
 ==================== AI booking: availability -> read-back -> held booking -> SMS payment link -> paid -> confirmed ====================
     caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
@@ -683,192 +679,3 @@ PASS  parks
 PASS  billing
 PASS  resilience
 PASS  containers
-OnSite store tests | MemoryStore vs DynamoStore (dynalite, real DynamoDB wire protocol)
-
-==================== Store contract: identical behaviour on MemoryStore and DynamoStore ====================
-  PASS  [memory] set/get round-trips nested data (undefined dropped, null and empty string kept)
-  PASS  [memory] get of a missing key is null
-  PASS  [memory] returned values are copies (mutating them does not change the store)
-  PASS  [memory] delete removes the key
-  PASS  [memory] putIfAbsent claims a free key
-  PASS  [memory] putIfAbsent refuses a live key and does not overwrite
-  PASS  [memory] item is readable before its TTL
-  PASS  [memory] expired item reads as missing (DynamoDB deletes lazily, so reads must filter)
-  PASS  [memory] an expired key can be claimed again
-  PASS  [memory] items with no TTL never expire
-  PASS  [memory] update creates then modifies
-  PASS  [memory] update returning undefined leaves the item unchanged
-  PASS  [memory] query returns items ordered by sort key
-  PASS  [memory] query supports sort-key ranges
-  PASS  [memory] query respects limit
-  PASS  [memory] index is sparse: changing status removes the item from the index
-  PASS  [memory] expired items are excluded from queries
-  PASS  [memory] a second index works independently
-  PASS  [memory] list(prefix) finds only matching live keys (dev/test helper)
-  PASS  [memory] oversized items fail loudly (DynamoDB 400 KB limit)
-  PASS  [memory] withLock serialises contenders (no interleaving)
-  PASS  [memory] lock is released even when the work throws, and the error propagates
-  PASS  [memory] lock is free again immediately after a normal release (no leaked locks)
-  PASS  [dynamodb] set/get round-trips nested data (undefined dropped, null and empty string kept)
-  PASS  [dynamodb] get of a missing key is null
-  PASS  [dynamodb] returned values are copies (mutating them does not change the store)
-  PASS  [dynamodb] delete removes the key
-  PASS  [dynamodb] putIfAbsent claims a free key
-  PASS  [dynamodb] putIfAbsent refuses a live key and does not overwrite
-  PASS  [dynamodb] item is readable before its TTL
-  PASS  [dynamodb] expired item reads as missing (DynamoDB deletes lazily, so reads must filter)
-  PASS  [dynamodb] an expired key can be claimed again
-  PASS  [dynamodb] items with no TTL never expire
-  PASS  [dynamodb] update creates then modifies
-  PASS  [dynamodb] update returning undefined leaves the item unchanged
-  PASS  [dynamodb] query returns items ordered by sort key
-  PASS  [dynamodb] query supports sort-key ranges
-  PASS  [dynamodb] query respects limit
-  PASS  [dynamodb] index is sparse: changing status removes the item from the index
-  PASS  [dynamodb] expired items are excluded from queries
-  PASS  [dynamodb] a second index works independently
-  PASS  [dynamodb] list(prefix) finds only matching live keys (dev/test helper)
-  PASS  [dynamodb] oversized items fail loudly (DynamoDB 400 KB limit)
-  PASS  [dynamodb] withLock serialises contenders (no interleaving)
-  PASS  [dynamodb] lock is released even when the work throws, and the error propagates
-  PASS  [dynamodb] lock is free again immediately after a normal release (no leaked locks)
-
->>> contract: PASS (46/46 checks)
-
-==================== DynamoDB: contention, multi-container behaviour, leases, pagination ====================
-  PASS  putIfAbsent: exactly one of 40 concurrent claims across 3 containers wins
-  PASS  update (optimistic): 45 concurrent increments across 3 containers lose no updates
-  PASS  withLock: mutual exclusion across containers (non-atomic read-modify-write stays correct)
-  PASS  a live lease blocks other containers; waiting times out with LOCK_TIMEOUT
-  PASS  after the dead holder's lease lapses another container takes over
-  PASS  query follows pagination (14 x 100 KB items, ~1.4 MB, all returned in order)
-  PASS  list(prefix) follows pagination too
-  PASS  every write bumps the item version
-  PASS  update enforces the item size limit too
-
->>> dynamo: PASS (9/9 checks)
-
-==================== Repos: retention and indexes for bookings and calls ====================
-  PASS  [memory] held booking appears in the held index
-  PASS  [memory] confirmed booking leaves the held index but stays readable
-  PASS  [memory] booking records expire after the 90 day retention
-  PASS  [memory] open calls are found by last activity
-  PASS  [memory] finalised calls leave the open index
-  PASS  [memory] calls are indexed per park for statements
-  PASS  [memory] billing ledger records have no TTL by default
-  PASS  [dynamodb] held booking appears in the held index
-  PASS  [dynamodb] confirmed booking leaves the held index but stays readable
-  PASS  [dynamodb] booking records expire after the 90 day retention
-  PASS  [dynamodb] open calls are found by last activity
-  PASS  [dynamodb] finalised calls leave the open index
-  PASS  [dynamodb] calls are indexed per park for statements
-  PASS  [dynamodb] billing ledger records have no TTL by default
-
->>> repos: PASS (14/14 checks)
-
-==================== Infrastructure template matches the schema the code expects ====================
-  PASS  every attribute in the code's table definition is declared in sam.yaml
-  PASS  both indexes exist with the same key attributes
-  PASS  DynamoDB TTL is enabled on the "ttl" attribute the store writes
-  PASS  table is retained on stack deletion, backed up (PITR), encrypted, on-demand
-  PASS  both Lambda functions get table access and select the DynamoDB backend
-
->>> infra: PASS (5/5 checks)
-
-==================== SUMMARY ====================
-PASS  contract
-PASS  dynamo
-PASS  repos
-PASS  infra
-OnSite NewBook REST client tests | fake NewBook server built from the public docs (not the real NewBook)
-
-==================== Protocol: URL, auth, envelope, errors, timeouts, retries, rate limit ====================
-  PASS  POSTs to <base>/auth_test with HTTP Basic auth and region + api_key in the JSON body
-  PASS  success:"true" string envelope is understood and data returned
-  PASS  wrong password (HTTP 401) -> AUTH error, not retried
-  PASS  wrong api_key (success:"false") -> AUTH error
-  PASS  a throttled READ is retried once and succeeds
-  PASS  a throttled WRITE is not retried (THROTTLED, outcome known: not applied)
-  PASS  a hung READ times out at the read budget (TIMEOUT) and is not retried
-  PASS  a hung WRITE times out with outcomeUnknown=true (it may have been applied)
-  PASS  HTTP 500 on a write -> SERVER_ERROR, outcomeUnknown=true, sent exactly once
-  PASS  HTTP 500 on a read is retried once then reported
-  PASS  an unreadable reply to a write -> INVALID_RESPONSE with outcomeUnknown=true
-  PASS  client-side limiter stops at max_per_minute without hitting NewBook (100/min limit)
-  PASS  credentials (password, api_key) never appear in logs
-
->>> protocol: PASS (13/13 checks)
-
-==================== Mapping NewBook categories/tariffs/statuses to OnSite sites ====================
-  PASS  category -> site: id, name, nightly price from tariff_total / nights
-  PASS  capacity, pets, size and amenities are derived from category data
-  PASS  a category that does not allow animals is not pet friendly
-  PASS  quote sends this party's occupancy (adults, animals) and the category
-  PASS  quote returns nights, nightly rate and the NewBook total
-  PASS  a fully booked category is marked unavailable; others stay available
-  PASS  quote for a category with no free site -> SITE_UNAVAILABLE
-  PASS  the cheapest SUCCESSFUL tariff is used (failed tariffs ignored), strings parsed to numbers
-  PASS  capacity falls back to adults + children when no combined limit; unknown features are slugged; ft converted to m (largest site)
-  PASS  a category with no metadata is never offered (pets/size unknown)
-  PASS  category metadata is cached (one accommodation_categories_list call)
-  PASS  warm() fills the category cache so the first availability call does not fetch it
-  PASS  bestTariff returns null when nothing is bookable
-  PASS  statuses map to OnSite statuses
-  PASS  names split into first/last; single names get a placeholder surname
-  PASS  amenity mapping handles NewBook feature names
-
->>> mapping: PASS (16/16 checks)
-
-==================== Bookings: create, find, confirm + payment, release ====================
-  PASS  bookings_create sends every documented required field (guest name, placeholder address, phone, category, dates)
-  PASS  the hold is created as Unconfirmed, with occupancy, and our reference + expiry in the notes
-  PASS  result is mapped: id as string, provisional status, NewBook total, account id
-  PASS  findBookingByKey finds the booking from our reference in its notes
-  PASS  findBookingByKey returns null for an unknown key
-  PASS  a second create for the same category/dates when it is full -> SITE_UNAVAILABLE
-  PASS  a one-word name is accepted (placeholder surname)
-  PASS  getBooking maps an unknown booking to null
-  PASS  payment is posted to the booking's client ACCOUNT with our payment id as type_reference, Credit Card type, full amount (not a deposit)
-  PASS  booking is then set to Confirmed
-  PASS  confirming again does not post the payment twice
-  PASS  if the status update fails AFTER the payment was posted, the error surfaces (provider will retry)
-  PASS  the retry does NOT double-post the payment and finishes the confirmation
-  PASS  a part-payment is flagged as a deposit
-  PASS  confirming a CANCELLED booking is refused (BOOKING_RELEASED) and posts no payment
-  PASS  release cancels an unpaid hold with the configured cancellation reason id (looked up by name)
-  PASS  release does not send notes (they could overwrite our reference)
-  PASS  release NEVER cancels a booking that is no longer a hold (confirmed stays confirmed)
-  PASS  releasing an unknown booking -> NOT_FOUND
-  PASS  a cancellation reason name that does not exist -> CONFIG error (and the booking is left alone)
-  PASS  an unknown payment type name -> CONFIG error, nothing posted, booking not confirmed
-
->>> bookings: PASS (21/21 checks)
-
-==================== Configuration, validation and startup refusal ====================
-  PASS  a complete AI-booking config validates
-  PASS  missing placeholder address, payment type and cancellation reason are all reported for AI booking
-  PASS  a handoff-only park needs only credentials
-  PASS  unit_mode must be category or site
-  PASS  the app refuses to start a real-NewBook AI-booking park with an incomplete config
-  PASS  and starts when the config is complete
-  PASS  mock-NewBook parks are not subject to REST validation
-  PASS  missing credentials surface as a CONFIG error (and nothing is sent)
-  PASS  creating a booking without a placeholder address is refused before any request
-  PASS  hostile caller-supplied names travel as plain JSON data (no breakage)
-  PASS  NewBookError carries code, method and outcomeUnknown
-
->>> config: PASS (11/11 checks)
-
-==================== scripts/newbook-probe.js runs end to end (against the fake server) ====================
-  PASS  read-only probe passes and makes no writes
-  PASS  --write probe creates, finds, pays, confirms and tells you what to clean up
-  PASS  a failing instance makes the probe exit non-zero and say what failed
-
->>> probe: PASS (3/3 checks)
-
-==================== SUMMARY ====================
-PASS  protocol
-PASS  mapping
-PASS  bookings
-PASS  config
-PASS  probe

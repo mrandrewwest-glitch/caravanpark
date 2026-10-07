@@ -1,0 +1,29 @@
+OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | SMS, payments, notifier: MOCK | store: in-memory | newbook: in-process mock | pinned date: 2026-09-30
+
+==================== Usage ledger and monthly statement ($100/month + $3 per answered call) ====================
+    caller: "Any sites Oct 10 to 15?"
+    ai:     "Good news, we've got 5 sites for October 10th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Which one would you like me to book?"
+    caller: "Any sites Oct 10 to 15?"
+    ai:     "Good news, we've got 5 sites for October 10th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Which one would you like me to book?"
+    caller: "Hi, this is about your extended warranty"
+    ai:     "Thanks for calling, have a great day."
+    caller: "Any sites Oct 10 to 15?"
+    ai:     "Good news, we've got 5 sites for October 10th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Which one would you like me to book?"
+    caller: "Any sites Oct 10 to 15?"
+    ai:     "Good news, we've got 5 sites for October 10th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Which one would you like me to book?"
+  PASS  answered call of 90s is billable
+  PASS  call-ended is idempotent (not billed twice)
+  PASS  call-ended for an unknown number -> 404
+  PASS  idle finaliser closes calls whose end event never arrived
+  PASS  billable = answered b1 + idle-finalised b5 (2 calls)
+  PASS  total = $100 monthly + 2 x $3 = $106
+  PASS  not billed: abandoned (<15s), spam, test call
+  PASS  estimated durations are labelled as such on the statement
+  PASS  cost drivers recorded (Claude tokens per model)
+  PASS  another park's statement is separate: just the monthly fee
+  PASS  statement requires month=YYYY-MM
+
+>>> billing: PASS (11/11 checks)
+
+==================== SUMMARY ====================
+PASS  billing

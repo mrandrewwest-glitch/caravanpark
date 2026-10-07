@@ -1,0 +1,66 @@
+OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | SMS, payments, notifier: MOCK | store: in-memory | newbook: in-process mock | pinned date: 2026-09-30
+
+==================== Resilience: Claude down, SMS failure, suppression, payment-link failure, card numbers ====================
+
+[R1] Claude down at a diversion park
+    caller: "Any sites Oct 10 to 15?"
+    ai:     "Sorry, we're having a technical problem. I've noted your number and the team will call you back as soon as they can."  [TAKE MESSAGE]
+  PASS  no transfer into a busy office: takes a message path instead
+  PASS  message record + staff alert still created
+    caller: "Any sites Oct 10 to 15?"
+    ai:     "Our system is busy, let me transfer you to our team."  [LIVE TRANSFER]
+  PASS  full-service park falls back to the live transfer line
+
+[R2] payment-link SMS fails
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "I've held the site for you, but I couldn't send the text. I'll ask the team to send you the payment link."
+  PASS  hold stands, caller told the team will send the link, staff get the link
+  PASS  no reminder is sent for a link that was never delivered
+
+[R3] caller opted out of SMS
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "I've held the site for you, but I couldn't send the text. I'll ask the team to send you the payment link."
+  PASS  no SMS to an opted-out number; staff alerted instead
+
+[R4] payment provider cannot create a link
+    caller: "Hi, any sites Oct 10 to 15 for 4 of us with a dog?"
+    ai:     "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with power, water and wifi, and Site 5 is $250 a night with power, water and wifi. Which one would you like me to book?"
+    caller: "Site 12 please"
+    ai:     "What name should the booking be under?"
+    caller: "Sam Taylor"
+    ai:     "I'll text the payment link to the number you're calling from, ending 6 7 8. Is that okay?"
+    caller: "Yes"
+    ai:     "That's Site 12, October 10th to October 15th, 4 guests with a pet, under the name Sam Taylor. The total is $925. I'll hold it for 45 minutes and text a secure payment link to the number ending 6 7 8. Shall I go ahead?"
+    caller: "Yes, go ahead"
+    ai:     "I'm having trouble with the booking system, so I'll get the team to call you back and finish this off. They'll call you back on the number you're calling from, ending 6 7 8. Is that right?"  [TAKE MESSAGE]
+  PASS  hold released, nothing left dangling, caller handed off
+
+[R5] caller reads out a card number
+    caller: "my card is 4242 4242 4242 4242, expiry 12/28"
+    ai:     "Please don't read out any card details. I'll text you a secure payment link instead. Where were we?"
+  PASS  card number never reaches Claude, state or logs
+  PASS  caller is told not to read out card details
+    caller: "my number is 0412 345 678 and we want 4 nights"
+    ai:     "When are you thinking of coming?"
+  PASS  ordinary phone numbers are not mistaken for cards
+
+>>> resilience: PASS (10/10 checks)
+
+==================== SUMMARY ====================
+PASS  resilience

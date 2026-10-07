@@ -1,17 +1,17 @@
-OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) | NewBook: MOCK | pinned date: 2026-09-30
+OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) | store: in-memory | newbook: in-process mock | pinned date: 2026-09-30
 
 ==================== Scenario 4: escalation (booking intent) ====================
 
 --- turn 1 ---
 [claude_mode] stub
 [caller]      "I want to book Site 12 for October 10th" (dialpad confidence 0.95)
-[extraction]  {"check_in_date":"2026-10-10","check_out_date":null,"num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.95,"needs_clarification":false,"intent":"booking","handoff_reason":"wants to book"}
+[extraction]  {"check_in_date":"2026-10-10","check_out_date":null,"num_guests":null,"vehicle_type":null,"has_pet":null,"special_requests":null,"confidence":0.85,"needs_clarification":false,"intent":"booking","handoff_reason":"wants to book","chosen_site_id":12,"guest_name":null,"mobile":null,"confirmation":null,"wants_human":false}
 [newbook]     not queried
 [decision]    transfer: booking intent
 [ai reply]    "Perfect, let me connect you with our team to confirm that."
-[dialpad out] {"response_text":"Perfect, let me connect you with our team to confirm that.","transfer_to_human":true,"metadata":{"call_sid":"mock_call_004","turn":1,"status":"ready_to_transfer"}}
+[dialpad out] {"response_text":"Perfect, let me connect you with our team to confirm that.","transfer_to_human":true,"metadata":{"call_sid":"mock_call_004","turn":1,"status":"ready_to_transfer","park_id":"friend-caravan-park"}}
 [handoff]     Customer: from 2026-10-10. Reason for transfer: wants to book.
-[latency]     112 ms (budget 3000 ms)
+[latency]     44 ms (budget 3000 ms)
   PASS  transfer_to_human true
   PASS  NewBook NOT queried
   PASS  handoff details include phone + conversation history

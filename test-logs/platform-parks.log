@@ -1,0 +1,14 @@
+OnSite platform tests | claude client: STUB (offline rule-based stand-in, NOT Claude) | SMS, payments, notifier: MOCK | store: in-memory | newbook: in-process mock | pinned date: 2026-09-30
+
+==================== Multi-park routing and isolation ====================
+  PASS  lakeside is answered from its own availability (pet + 4 guests: sites 12, 5)
+  PASS  riverbend is answered from ITS sites (only site 1 fits)
+  PASS  no called_number -> default (first) park
+  PASS  unrecognised number -> safe fallback, never another park's data
+  PASS  park id travels in the response metadata
+  PASS  each park has its own NewBook client instance
+
+>>> parks: PASS (6/6 checks)
+
+==================== SUMMARY ====================
+PASS  parks

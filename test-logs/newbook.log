@@ -1,0 +1,92 @@
+OnSite NewBook REST client tests | fake NewBook server built from the public docs (not the real NewBook)
+
+==================== Protocol: URL, auth, envelope, errors, timeouts, retries, rate limit ====================
+  PASS  POSTs to <base>/auth_test with HTTP Basic auth and region + api_key in the JSON body
+  PASS  success:"true" string envelope is understood and data returned
+  PASS  wrong password (HTTP 401) -> AUTH error, not retried
+  PASS  wrong api_key (success:"false") -> AUTH error
+  PASS  a throttled READ is retried once and succeeds
+  PASS  a throttled WRITE is not retried (THROTTLED, outcome known: not applied)
+  PASS  a hung READ times out at the read budget (TIMEOUT) and is not retried
+  PASS  a hung WRITE times out with outcomeUnknown=true (it may have been applied)
+  PASS  HTTP 500 on a write -> SERVER_ERROR, outcomeUnknown=true, sent exactly once
+  PASS  HTTP 500 on a read is retried once then reported
+  PASS  an unreadable reply to a write -> INVALID_RESPONSE with outcomeUnknown=true
+  PASS  client-side limiter stops at max_per_minute without hitting NewBook (100/min limit)
+  PASS  credentials (password, api_key) never appear in logs
+
+>>> protocol: PASS (13/13 checks)
+
+==================== Mapping NewBook categories/tariffs/statuses to OnSite sites ====================
+  PASS  category -> site: id, name, nightly price from tariff_total / nights
+  PASS  capacity, pets, size and amenities are derived from category data
+  PASS  a category that does not allow animals is not pet friendly
+  PASS  quote sends this party's occupancy (adults, animals) and the category
+  PASS  quote returns nights, nightly rate and the NewBook total
+  PASS  a fully booked category is marked unavailable; others stay available
+  PASS  quote for a category with no free site -> SITE_UNAVAILABLE
+  PASS  the cheapest SUCCESSFUL tariff is used (failed tariffs ignored), strings parsed to numbers
+  PASS  capacity falls back to adults + children when no combined limit; unknown features are slugged; ft converted to m (largest site)
+  PASS  a category with no metadata is never offered (pets/size unknown)
+  PASS  category metadata is cached (one accommodation_categories_list call)
+  PASS  warm() fills the category cache so the first availability call does not fetch it
+  PASS  bestTariff returns null when nothing is bookable
+  PASS  statuses map to OnSite statuses
+  PASS  names split into first/last; single names get a placeholder surname
+  PASS  amenity mapping handles NewBook feature names
+
+>>> mapping: PASS (16/16 checks)
+
+==================== Bookings: create, find, confirm + payment, release ====================
+  PASS  bookings_create sends every documented required field (guest name, placeholder address, phone, category, dates)
+  PASS  the hold is created as Unconfirmed, with occupancy, and our reference + expiry in the notes
+  PASS  result is mapped: id as string, provisional status, NewBook total, account id
+  PASS  findBookingByKey finds the booking from our reference in its notes
+  PASS  findBookingByKey returns null for an unknown key
+  PASS  a second create for the same category/dates when it is full -> SITE_UNAVAILABLE
+  PASS  a one-word name is accepted (placeholder surname)
+  PASS  getBooking maps an unknown booking to null
+  PASS  payment is posted to the booking's client ACCOUNT with our payment id as type_reference, Credit Card type, full amount (not a deposit)
+  PASS  booking is then set to Confirmed
+  PASS  confirming again does not post the payment twice
+  PASS  if the status update fails AFTER the payment was posted, the error surfaces (provider will retry)
+  PASS  the retry does NOT double-post the payment and finishes the confirmation
+  PASS  a part-payment is flagged as a deposit
+  PASS  confirming a CANCELLED booking is refused (BOOKING_RELEASED) and posts no payment
+  PASS  release cancels an unpaid hold with the configured cancellation reason id (looked up by name)
+  PASS  release does not send notes (they could overwrite our reference)
+  PASS  release NEVER cancels a booking that is no longer a hold (confirmed stays confirmed)
+  PASS  releasing an unknown booking -> NOT_FOUND
+  PASS  a cancellation reason name that does not exist -> CONFIG error (and the booking is left alone)
+  PASS  an unknown payment type name -> CONFIG error, nothing posted, booking not confirmed
+
+>>> bookings: PASS (21/21 checks)
+
+==================== Configuration, validation and startup refusal ====================
+  PASS  a complete AI-booking config validates
+  PASS  missing placeholder address, payment type and cancellation reason are all reported for AI booking
+  PASS  a handoff-only park needs only credentials
+  PASS  unit_mode must be category or site
+  PASS  the app refuses to start a real-NewBook AI-booking park with an incomplete config
+  PASS  and starts when the config is complete
+  PASS  mock-NewBook parks are not subject to REST validation
+  PASS  missing credentials surface as a CONFIG error (and nothing is sent)
+  PASS  creating a booking without a placeholder address is refused before any request
+  PASS  hostile caller-supplied names travel as plain JSON data (no breakage)
+  PASS  NewBookError carries code, method and outcomeUnknown
+
+>>> config: PASS (11/11 checks)
+
+==================== scripts/newbook-probe.js runs end to end (against the fake server) ====================
+  PASS  read-only probe passes and makes no writes
+  PASS  --write probe creates, finds, pays, confirms and tells you what to clean up
+  PASS  a failing instance makes the probe exit non-zero and say what failed
+
+>>> probe: PASS (3/3 checks)
+
+==================== SUMMARY ====================
+PASS  protocol
+PASS  mapping
+PASS  bookings
+PASS  config
+PASS  probe

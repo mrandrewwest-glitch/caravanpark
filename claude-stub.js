@@ -76,12 +76,30 @@ function parseGuests(text) {
   return null;
 }
 
-function extractIntent({ transcript, today, known = {} }) {
+const YES = /^\s*(yes|yeah|yep|yup|correct|that'?s (right|correct)|right|sure|please do|go ahead|ok|okay|absolutely)\b/i;
+const NO = /^\s*(no|nope|nah|not quite|wrong|incorrect)\b/i;
+
+function parseName(text) {
+  const m = text.match(/(?:my name is|name'?s|this is|it'?s|it is|i am|i'm|under|call me)\s+([a-z][a-z'-]+(?:\s+[a-z][a-z'-]+){0,2})/i);
+  let raw = m ? m[1] : null;
+  if (!raw && /^\s*[a-z][a-z'-]+(\s+[a-z][a-z'-]+){0,2}\s*[.!]?\s*$/i.test(text)) raw = text.replace(/[.!]/g, '').trim();
+  if (!raw || /^(yes|no|yeah|nope|nah|ok|okay|sure|correct|thanks|hello|hi)$/i.test(raw)) return null;
+  return raw.split(/\s+/).map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
+}
+
+function parseMobile(text) {
+  const m = text.match(/(\+?\d[\d\s-]{7,16}\d)/);
+  return m ? m[1].replace(/[\s-]/g, '') : null;
+}
+
+function extractIntent({ transcript, today, known = {}, lastQuestion = null }) {
   const t = transcript.toLowerCase();
+  const q = (lastQuestion || '').toLowerCase();
   const out = {
     check_in_date: null, check_out_date: null, num_guests: null, vehicle_type: null,
     has_pet: null, special_requests: null, confidence: 0.4, needs_clarification: true,
     intent: 'availability_enquiry', handoff_reason: null,
+    chosen_site_id: null, guest_name: null, mobile: null, confirmation: null, wants_human: false,
   };
 
   if (/warranty|robocall|telemarket|press (1|one)\b|you('ve| have) won|this is not a sales/.test(t)) {
@@ -96,17 +114,14 @@ function extractIntent({ transcript, today, known = {} }) {
   if (/long[- ]term|monthly|permanent|group (rate|booking)|corporate|wedding|\bevent\b/.test(t)) {
     return { ...out, intent: 'out_of_scope', confidence: 0.9, needs_clarification: false, handoff_reason: 'out-of-scope enquiry' };
   }
-  if (/\b(book|reserve|lock (it )?in|i'?ll take|we'?ll take)\b/.test(t)) {
-    const d = parseDates(t, today);
-    return { ...out, intent: 'booking', check_in_date: d.check_in, check_out_date: d.check_out, confidence: 0.95, needs_clarification: false, handoff_reason: 'wants to book' };
-  }
+  out.wants_human = /(speak|talk) (to|with) (a |the |an )?(person|human|someone|owner|manager|staff|real)|call me back|ring me back|get (someone|a person)/.test(t);
 
+  const wantsBooking = /\b(book|reserve|lock (it )?in|i'?ll take|we'?ll take)\b/.test(t);
   const d = parseDates(t, today);
   let checkOut = d.check_out;
   const nights = parseNights(t);
   const checkIn = d.check_in || (nights ? known.check_in_date || null : null);
   if (!checkOut && checkIn && nights) checkOut = D.addDays(checkIn, nights);
-  // A follow-up like "3 nights" applies to the check-in we already know.
   const petMatch = /\b(no|without)\s+(pets?|dogs?)\b/.test(t) ? false : /\b(dog|dogs|puppy|cat|pet|pets)\b/.test(t) ? true : null;
   const vehicle = /motorhome|motor home/.test(t) ? 'motorhome' : /campervan|camper van/.test(t) ? 'campervan' : /caravan/.test(t) ? 'caravan' : null;
   const wantsKidStuff = /\b(kid|kids|child|children|family)\b/.test(t);
@@ -117,10 +132,35 @@ function extractIntent({ transcript, today, known = {} }) {
   out.has_pet = petMatch;
   out.vehicle_type = vehicle;
   out.special_requests = wantsKidStuff ? 'family with kids' : null;
+  out.intent = wantsBooking ? 'booking' : 'availability_enquiry';
+  if (wantsBooking) out.handoff_reason = 'wants to book';
   if (checkIn && checkOut) out.confidence = d.explicit ? 0.95 : 0.9;
   else if (checkIn) out.confidence = d.explicit ? 0.85 : 0.8;
-  else out.confidence = 0.4;
-  out.needs_clarification = !(checkIn && checkOut) || out.confidence < 0.8;
+  else out.confidence = wantsBooking ? 0.95 : 0.4;
+  out.needs_clarification = wantsBooking ? false : !(checkIn && checkOut) || out.confidence < 0.8;
+
+  // Booking-flow answers, interpreted against the assistant's last question.
+  const site = t.match(/\b(?:site|number)\s*(\d{1,3})\b/);
+  if (site) out.chosen_site_id = Number(site[1]);
+  if (YES.test(transcript)) out.confirmation = 'yes';
+  else if (NO.test(transcript)) out.confirmation = 'no';
+  if (/what name should|take your name/.test(q)) out.guest_name = parseName(transcript);
+  else if (/(?:my name is|under the name)/.test(t)) out.guest_name = parseName(transcript);
+  const mobile = parseMobile(transcript);
+  if (mobile && /mobile|number/.test(q)) out.mobile = mobile;
+  if (/how many (people|guests)|who.?s staying/.test(q) && out.num_guests === null) {
+    const n = t.match(new RegExp(`\\b${NUM}\\b`));
+    if (n && num(n[1])) out.num_guests = num(n[1]);
+  }
+  if (/bringing any pets/.test(q) && out.has_pet === null) {
+    if (out.confirmation === 'yes') out.has_pet = true;
+    else if (out.confirmation === 'no') out.has_pet = false;
+  }
+  if (/bringing any pets/.test(q) && out.confirmation && !wantsBooking) out.confirmation = null; // yes/no answered the pet question, not a read-back
+  if (/how many nights/.test(q) && !checkOut && checkIn === null && known.check_in_date && nights === null) {
+    const n = t.match(new RegExp(`\\b${NUM}\\b`));
+    if (n && num(n[1])) { out.check_out_date = D.addDays(known.check_in_date, num(n[1])); out.confidence = 0.9; out.needs_clarification = false; }
+  }
   return out;
 }
 
@@ -133,16 +173,17 @@ function describeSite(site, prefer) {
   return `${site.name.split(' - ')[0]} is $${site.price} a night with ${list}`;
 }
 
-function generateResponse({ extracted, sites, totalAvailable }) {
+function generateResponse({ extracted, sites, totalAvailable, bookingEnabled = false }) {
   const top = sites.slice(0, 2);
   const petsOnly = extracted.has_pet === true;
   const kids = /kid|family/.test(extracted.special_requests || '');
   const prefer = kids ? ['playground_nearby'] : [];
   const when = `${D.spoken(extracted.check_in_date)} to ${D.spoken(extracted.check_out_date)}`;
   const count = totalAvailable === 1 ? 'one site' : `${totalAvailable} sites`;
+  const closer = bookingEnabled ? 'Which one would you like me to book?' : 'Would one of those suit you?';
   const lead = `Good news, we've got ${count} ${petsOnly ? 'that welcome pets ' : ''}for ${when}.`;
   const body = top.map((s) => describeSite(s, prefer)).join(', and ');
-  return `${lead} ${body}. Would one of those suit you?`;
+  return `${lead} ${body}. ${closer}`;
 }
 
 function createStubClaudeClient() {
