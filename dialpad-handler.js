@@ -63,7 +63,7 @@ function callEnded(deps) {
     const park = await deps.registry.resolve(typeof calledNumber === 'string' ? calledNumber : null);
     if (!park) return res.status(404).json({ error: 'unknown park' });
     const rec = await deps.ledger.finalizeCall(callSid, park, { duration_seconds: Number.isFinite(duration) && duration >= 0 ? Math.round(duration) : null });
-    return res.json({ recorded: !!rec, billable: rec ? !!rec.billable : false });
+    return res.json({ recorded: !!rec, billable: rec ? !!rec.billable : false, outcome: rec ? rec.outcome || null : null });
   };
 }
 

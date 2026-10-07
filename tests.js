@@ -7,6 +7,7 @@
 const { start, call, printFlow, makeChecker, TODAY, BUDGET_MS, STORE_NAME, NEWBOOK_NAME } = require('./test-helpers');
 const { createClaudeClient } = require('./claude-client');
 const { createMockNewBookClient } = require('./newbook-client');
+const { spawn } = require('child_process');
 
 const scenarios = {
   1: {
@@ -155,6 +156,29 @@ const scenarios = {
       check('E9 all 30 succeeded, none transferred', runs.every((x) => x.status === 200 && !x.body.transfer_to_human));
       check(`E9 slowest under ${BUDGET_MS} ms`, worst < BUDGET_MS);
       await env.close();
+
+      console.log('\n[E12] the interactive demo (npm run demo) works end to end');
+      const runDemo = (args, input) => new Promise((resolve) => {
+        const env = { ...process.env, CLAUDE_MODE: 'stub', ANTHROPIC_API_KEY: '', NO_COLOR: '1' };
+        delete env.NODE_ENV; delete env.STORE_BACKEND; delete env.PARKS_CONFIG;
+        const child = spawn(process.execPath, ['demo.js', ...args], { env });
+        let out = '';
+        child.stdout.on('data', (c) => { out += c; });
+        child.stderr.on('data', (c) => { out += c; });
+        child.on('close', (code) => resolve({ code, out }));
+        if (input !== undefined) { child.stdin.write(input); child.stdin.end(); } else child.stdin.end();
+      });
+      const auto = await runDemo(['--auto']);
+      check('E12 --auto plays a full booking: held, payment link texted, paid, confirmed, confirmation texted', auto.code === 0 && /BOOKING NB1001 HELD/.test(auto.out) && /payment_link/.test(auto.out) && /pay\.mock\.onsite\.test/.test(auto.out) && /payment webhook: confirmed/.test(auto.out) && /CONFIRMED/.test(auto.out) && /booking_confirmation/.test(auto.out));
+      check('E12 --auto ends with the park\'s usage statement ($100 + 1 call x $3 = $103)', /\$100 \+ 1 answered call x \$3 = \$103/.test(auto.out));
+      const expiry = await runDemo([], ['Hi, any sites next weekend for 4 of us with a dog?', 'Site 12 please', 'Sam Taylor', 'Yes', 'Yes, go ahead', '/wait 35', '/wait 40', '/state', '/quit'].join('\n') + '\n');
+      check('E12 interactive: unpaid hold gets a reminder, then expires and is released', expiry.code === 0 && /hold_reminder/.test(expiry.out) && /expired unpaid and was released/.test(expiry.out) && /RELEASED/.test(expiry.out));
+      check('E12 interactive: hanging up before waiting means the quick call is not billed', /under 15 seconds, so not billed/.test(expiry.out));
+      const msg = await runDemo([], ['This is terrible, I want to complain about my last stay', 'Jo Smith', 'Yes', '/mode full', '/new', 'I want to complain please, terrible service', '/hold 5', '/bogus', '/quit'].join('\n') + '\n');
+      check('E12 interactive: busy-staff park takes a message and texts an acknowledgement', /taking a message/.test(msg.out) && /message_taken/.test(msg.out) && /callback_requested/.test(msg.out));
+      check('E12 interactive: /mode full switches to live transfer; bad input is handled politely', /LIVE TRANSFER/.test(msg.out) && /between 15 and 1440/.test(msg.out) && /Unknown command/.test(msg.out) && msg.code === 0);
+      const help = await runDemo(['--help']);
+      check('E12 --help prints usage and exits 0', help.code === 0 && /Usage: npm run demo/.test(help.out));
 
       console.log('\n[E11] live Claude client against a fake SDK (no network)');
       const { createLiveClaudeClient } = require('./claude-client');
