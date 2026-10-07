@@ -27,6 +27,7 @@ const keys = {
   message: (parkId, sid) => `messages:${parkId}:${sid}`,
   suppression: (phone) => `suppression:${phone}`,
   parkSettings: (id) => `park_settings:${id}`,
+  twilioCall: (sid) => `twilio_call:${sid}`,
 };
 
 // ---- Bookings: sparse index "bookings#held" ordered by hold expiry, only while status is 'held' ----
@@ -47,6 +48,11 @@ const messageOpts = (rec) => ({ ttlSeconds: TTL.messages, index: { gsi2: { pk: `
 const saveMessage = (store, rec) => store.set(keys.message(rec.park_id, rec.call_sid), rec, messageOpts(rec));
 const getMessage = (store, parkId, callSid) => store.get(keys.message(parkId, callSid));
 const parkMessages = (store, parkId) => store.query('gsi2', `messages#${parkId}`);
+
+// ---- Twilio voice sessions: what we told Twilio to do with a call (e.g. hand it to staff), looked up when Twilio
+// calls back at the end of the session. Short-lived. ----
+const saveTwilioCall = (store, sid, rec) => store.set(keys.twilioCall(sid), rec, { ttlSeconds: 3 * DAY });
+const getTwilioCall = (store, sid) => store.get(keys.twilioCall(sid));
 
 // ---- Owner portal users (one record per sign-in email), listed per park ----
 const userKey = (email) => `users:${email}`;
@@ -78,4 +84,4 @@ const updateCall = (store, sid, fn) => store.update(keys.call(sid), fn, callOpts
 const openCallsBefore = (store, beforeMs) => store.query('gsi1', 'calls#open', { skMax: pad(beforeMs) });
 const parkCalls = (store, parkId, fromMs, toMs) => store.query('gsi2', `calls#${parkId}`, { skMin: pad(fromMs), skMax: pad(toMs) });
 
-module.exports = { TTL, pad, keys, bookingOpts, callOpts, saveBooking, getBooking, heldBookings, parkBookings, saveMessage, getMessage, parkMessages, saveUser, getUser, parkUsers, userKey, appendAudit, parkAudit, getCall, updateCall, openCallsBefore, parkCalls };
+module.exports = { saveTwilioCall, getTwilioCall, TTL, pad, keys, bookingOpts, callOpts, saveBooking, getBooking, heldBookings, parkBookings, saveMessage, getMessage, parkMessages, saveUser, getUser, parkUsers, userKey, appendAudit, parkAudit, getCall, updateCall, openCallsBefore, parkCalls };

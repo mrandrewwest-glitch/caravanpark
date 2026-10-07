@@ -61,6 +61,7 @@ async function start(overrides = {}) {
     ...overrides, config: { adminToken: 'test-admin', ...overrides.config },
   });
   const server = await new Promise((resolve) => { const s = app.listen(0, () => resolve(s)); });
+  if (app.attachWebSockets) app.attachWebSockets(server); // Twilio live-call WebSocket (only when Twilio is enabled)
   const base = `http://127.0.0.1:${server.address().port}`;
   const request = async (method, path, body, headers = {}) => {
     const t = Date.now();
@@ -74,14 +75,14 @@ async function start(overrides = {}) {
   const firstPark = await deps.registry.get(deps.registry.ids()[0]);
   const harnesses = rest ? Object.fromEntries(Object.entries(rest.fakes).map(([id, f]) => [id, harnessFor(f)])) : null;
   return {
-    app, deps, clock, request, base,
+    app, deps, clock, request, base, server,
     post: (path, body, headers) => request('POST', path, body, headers),
     admin: (method, path, body) => request(method, `/admin${path}`, body, { authorization: 'Bearer test-admin' }),
     newbook: harnesses ? harnesses[firstPark.id] : deps.providers.newbook(firstPark),
     nb: async (parkId) => (harnesses ? harnesses[parkId] : deps.providers.newbook(await deps.registry.get(parkId))),
     pay: async (parkId) => deps.providers.payments(await deps.registry.get(parkId)),
     sms: deps.sms, notifier: deps.notifier,
-    close: async () => { await new Promise((r) => server.close(r)); if (rest) await Promise.all(Object.values(rest.fakes).map((f) => f.stop())); },
+    close: async () => { if (app.relay) app.relay.clients.forEach((ws) => ws.terminate()); await new Promise((r) => server.close(r)); if (rest) await Promise.all(Object.values(rest.fakes).map((f) => f.stop())); },
   };
 }
 

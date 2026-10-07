@@ -1,0 +1,8 @@
+node_modules
+.git
+test-logs
+dist
+portal-web
+demo-web
+*.log
+.env

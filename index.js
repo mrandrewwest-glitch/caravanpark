@@ -22,6 +22,9 @@ const { createPortalAuth } = require('./portal-auth');
 const { createMockEmailer, createSesEmailer } = require('./emailer');
 const { portalRouter, securityHeaders } = require('./portal-api');
 const { dateInZone } = require('./util');
+const { twilioConfig } = require('./twilio');
+const { createTwilioSmsProvider } = require('./twilio-sms');
+const { twilioRouter, attachRelay, isE164 } = require('./twilio-voice');
 
 // STORE_BACKEND=dynamodb (+ DYNAMODB_TABLE, optional DYNAMODB_ENDPOINT for local) | memory (default; dev/tests only)
 function makeStore({ now, logger }) {
@@ -40,7 +43,8 @@ function buildDeps(overrides = {}) {
   const store = overrides.store || makeStore({ now, logger });
   const registry = overrides.registry || createParkRegistry({ parks: overrides.parks, store, ...(overrides.parkCacheMs !== undefined ? { cacheMs: overrides.parkCacheMs } : {}) });
   const firstParkId = registry.ids()[0];
-  const sms = overrides.sms || createMockSmsProvider({ store });
+  const tw = twilioConfig(env, overrides.twilio);
+  const sms = overrides.sms || (env.SMS_PROVIDER === 'twilio' || (tw.enabled && env.SMS_PROVIDER !== 'mock') ? createTwilioSmsProvider({ tw, store, logger }) : createMockSmsProvider({ store }));
   const newbooks = { ...(overrides.newbooks || {}) };
   if (overrides.newbook) newbooks[firstParkId] = overrides.newbook;
   const paymentProviders = { ...(overrides.payments || {}) };
@@ -65,6 +69,17 @@ function buildDeps(overrides = {}) {
 
   // Refuse to run with a real-NewBook park that is missing settings AI booking depends on.
   async function validateProviders() {
+    if (tw.enabled) {
+      const errors = tw.validate();
+      try { await tw.getCredentials(); } catch (err) { errors.push(err.message); }
+      for (const id of registry.ids()) {
+        const park = await registry.get(id);
+        const n = park.staff && park.staff.transfer_number;
+        if (park.mode === 'full' && !isE164(n)) errors.push(`Park ${id} is in full-service mode but has no staff.transfer_number (E.164, e.g. +61298765432) to hand calls to`);
+        else if (n && !isE164(n)) errors.push(`Park ${id}: staff.transfer_number must look like +61298765432`);
+      }
+      if (errors.length) throw new Error(`Twilio setup: ${errors.join('; ')}`);
+    }
     for (const id of registry.ids()) {
       const park = await registry.get(id);
       if (park.newbook && park.newbook.type === 'rest') {
@@ -80,6 +95,7 @@ function buildDeps(overrides = {}) {
   const portalAuth = createPortalAuth({ store, emailer, registry, now, logger, devShowCode: overrides.portalDevShowCode ?? env.PORTAL_DEV_SHOW_CODE === 'true' });
 
   return {
+    twilio: tw,
     validateProviders,
     emailer,
     portalAuth,
@@ -118,6 +134,9 @@ function createApp(overrides = {}) {
   app.post('/call-ended', callEnded(deps));
   app.post('/payment-webhook', (req, res) => handlePaymentWebhook(req, res, deps));
   app.use('/admin', adminRouter(deps));
+  if (deps.twilio.enabled) app.use('/twilio', twilioRouter(deps, deps.twilio));
+  // The live call WebSocket needs a long-lived server (not Lambda): call this with the http.Server from listen().
+  app.attachWebSockets = (server) => { app.relay = deps.twilio.enabled ? attachRelay(server, deps, deps.twilio) : null; return app.relay; };
 
   // Park owners' web portal: static pages + JSON API, with strict security headers (see portal-api.js).
   if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY) || true);
@@ -145,7 +164,7 @@ function createApp(overrides = {}) {
 if (require.main === module) {
   const app = createApp();
   const port = Number(process.env.PORT) || 3000;
-  app.deps.validateProviders().then(() => app.listen(port, () => app.deps.logger.info('listening', { port, claude_mode: app.deps.claude.mode }))).catch((err) => { console.error(err.message); process.exit(1); });
+  app.deps.validateProviders().then(() => { const server = app.listen(port, () => app.deps.logger.info('listening', { port, claude_mode: app.deps.claude.mode, twilio: app.deps.twilio.enabled })); app.attachWebSockets(server); }).catch((err) => { console.error(err.message); process.exit(1); });
 }
 
 module.exports = { createApp, buildDeps, makeStore };

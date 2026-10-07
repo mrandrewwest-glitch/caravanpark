@@ -200,9 +200,13 @@ A website for park owners and staff at `/portal/`: overview, call log (time, cal
 - **Static demo:** `npm run build:portal-web` builds `portal-web/OnSite-portal-demo.html`, a single file that runs the real portal code in the browser on made-up data (no server, nothing stored). Good for sharing; it is not the real service.
 - **Not done:** SES sending is written but untested against real SES (verify a sender, set `PORTAL_FROM_EMAIL`); the portal has not been deployed or security reviewed by a third party.
 
+## Phone calls and texts (Twilio)
+
+`twilio.js`, `twilio-voice.js` and `twilio-sms.js` connect the conversation engine to real phone calls (Twilio ConversationRelay over a WebSocket) and real texts. Signed webhooks only; hand-overs to staff with a recorded call-back if nobody answers; real call duration into billing. `server.js` + `Dockerfile` run it as an always-on server. **Tested against a fake Twilio only.** Setup, settings, costs and gaps: [docs/TWILIO.md](docs/TWILIO.md). Tests: `npm run test:twilio`.
+
 ## What's not built yet
 
-- **Real integrations:** running the NewBook REST client against a real instance (the client is written; the probe is the next step),  Dialpad's actual payload format and webhook auth (the `/phone-callback` and `/call-ended` endpoints are **unauthenticated**), an SMS provider, a payment provider (Stripe-style), staff alert channels.
+- **Real integrations:** running the NewBook REST client against a real instance (the client is written; the probe is the next step),  a payment provider (Stripe-style); the Twilio adapter is built but unproven against real Twilio, and the Dialpad-style `/phone-callback` and `/call-ended` endpoints remain **unauthenticated** (leave them off the public internet or retire them once Twilio is live) (Stripe-style), staff alert channels.
 - **Real AWS:** the DynamoDB store has only run against `dynalite`. Not yet done: deploy the stack, run the suites against a real table (IAM, TTL actually deleting, GSI propagation delay, throttling, latency), and decide ledger retention. There is no data migration tool (nothing is live yet).
 - **Voice channel:** unverified that Dialpad can run a turn-by-turn voice conversation; a voice-capable telephony provider may be needed (see docs/MODES-AND-PAYMENTS.md).
 - Two-way SMS conversations, STOP handling on inbound, (operator `/admin` routes are not exposed via API Gateway), live-Claude prompt tuning and latency measurement, cancel/modify flows, invoicing.
