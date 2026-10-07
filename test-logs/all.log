@@ -1,6 +1,6 @@
 
 > onsite-phone-receptionist@0.1.0 test
-> node tests.js all && node tests-platform.js all && node tests-store.js all && node tests-newbook.js all
+> node tests.js all && node tests-platform.js all && node tests-store.js all && node tests-newbook.js all && node tests-demo-web.js
 
 OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) | store: in-memory | newbook: in-process mock | pinned date: 2026-09-30
 
@@ -14,7 +14,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    respond: availability
 [ai reply]    "Good news, we've got 5 sites for October 9th to October 11th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?"
 [dialpad out] {"response_text":"Good news, we've got 5 sites for October 9th to October 11th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_001","turn":1,"status":"showing_availability","park_id":"friend-caravan-park"}}
-[latency]     98 ms (budget 3000 ms)
+[latency]     97 ms (budget 3000 ms)
   PASS  extracted a check-in and a later check-out (weekend, 2 nights)
   PASS  extraction confidence >= 0.8
   PASS  queried mock NewBook once
@@ -35,7 +35,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    clarify: no dates
 [ai reply]    "When are you thinking of coming?"
 [dialpad out] {"response_text":"When are you thinking of coming?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_002","turn":1,"status":"gathering_info","park_id":"friend-caravan-park"}}
-[latency]     9 ms (budget 3000 ms)
+[latency]     6 ms (budget 3000 ms)
   PASS  low confidence / needs clarification
   PASS  asks when they are coming
   PASS  NewBook NOT queried
@@ -54,7 +54,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    respond: availability
 [ai reply]    "Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with a playground nearby, power and water, and Site 5 is $250 a night with power, water and wifi. Would one of those suit you?"
 [dialpad out] {"response_text":"Good news, we've got 2 sites that welcome pets for October 10th to October 15th. Site 12 is $185 a night with a playground nearby, power and water, and Site 5 is $250 a night with power, water and wifi. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_003","turn":1,"status":"showing_availability","park_id":"friend-caravan-park"}}
-[latency]     56 ms (budget 3000 ms)
+[latency]     55 ms (budget 3000 ms)
   PASS  dates 2026-10-10 to 2026-10-15
   PASS  has_pet true
   PASS  num_guests 3 or 4
@@ -77,7 +77,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [ai reply]    "Perfect, let me connect you with our team to confirm that."
 [dialpad out] {"response_text":"Perfect, let me connect you with our team to confirm that.","transfer_to_human":true,"metadata":{"call_sid":"mock_call_004","turn":1,"status":"ready_to_transfer","park_id":"friend-caravan-park"}}
 [handoff]     Customer: from 2026-10-10. Reason for transfer: wants to book.
-[latency]     5 ms (budget 3000 ms)
+[latency]     3 ms (budget 3000 ms)
   PASS  transfer_to_human true
   PASS  NewBook NOT queried
   PASS  handoff details include phone + conversation history
@@ -97,7 +97,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    clarify: no dates
 [ai reply]    "When are you thinking of coming?"
 [dialpad out] {"response_text":"When are you thinking of coming?","transfer_to_human":false,"metadata":{"call_sid":"x1","turn":1,"status":"gathering_info","park_id":"friend-caravan-park"}}
-[latency]     4 ms (budget 3000 ms)
+[latency]     3 ms (budget 3000 ms)
 
 --- E1 turn 2 ---
 [claude_mode] stub
@@ -107,7 +107,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    respond: availability
 [ai reply]    "Good news, we've got 5 sites for October 12th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?"
 [dialpad out] {"response_text":"Good news, we've got 5 sites for October 12th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"x1","turn":2,"status":"showing_availability","park_id":"friend-caravan-park"}}
-[latency]     52 ms (budget 3000 ms)
+[latency]     53 ms (budget 3000 ms)
   PASS  E1 turn counter increments and availability answered
   PASS  E1 checkout computed from nights (Oct 12 -> Oct 15)
 
@@ -135,7 +135,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    clarify: low transcript confidence
 [ai reply]    "Sorry, I didn't quite catch that. Could you say that again?"
 [dialpad out] {"response_text":"Sorry, I didn't quite catch that. Could you say that again?","transfer_to_human":false,"metadata":{"call_sid":"x3","turn":1,"status":"gathering_info","park_id":"friend-caravan-park"}}
-[latency]     7 ms (budget 3000 ms)
+[latency]     5 ms (budget 3000 ms)
   PASS  E3 asks caller to repeat, extraction skipped
 
 [E4] NewBook outage, no cache
@@ -149,7 +149,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [ai reply]    "We can't check availability right now, let me get someone for you."
 [dialpad out] {"response_text":"We can't check availability right now, let me get someone for you.","transfer_to_human":true,"metadata":{"call_sid":"x4","turn":1,"status":"ready_to_transfer","park_id":"friend-caravan-park"}}
 [handoff]     Customer: 2026-10-10 to 2026-10-15. Reason for transfer: availability system down.
-[latency]     53 ms (budget 3000 ms)
+[latency]     52 ms (budget 3000 ms)
   PASS  E4 escalates with outage message
 
 [E5] Claude API failure
@@ -162,7 +162,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    fallback: Claude 529 overloaded
 [ai reply]    "Our system is busy, let me transfer you to our team."
 [dialpad out] {"response_text":"Our system is busy, let me transfer you to our team.","transfer_to_human":true,"metadata":{"call_sid":"x5","turn":null,"status":"ready_to_transfer","error":"Claude 529 overloaded","park_id":"friend-caravan-park"}}
-[latency]     3 ms (budget 3000 ms)
+[latency]     2 ms (budget 3000 ms)
   PASS  E5 returns the safe fallback + transfer
 
 [E6] hung Claude call hits the hard deadline
@@ -188,7 +188,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    end: spam/bot caller
 [ai reply]    "Thanks for calling, have a great day."
 [dialpad out] {"response_text":"Thanks for calling, have a great day.","transfer_to_human":false,"metadata":{"call_sid":"x7a","turn":1,"status":"ended","park_id":"friend-caravan-park"}}
-[latency]     4 ms (budget 3000 ms)
+[latency]     3 ms (budget 3000 ms)
   PASS  E7 spam: end_call, no transfer
   PASS  E7 complaint transfers
 
@@ -210,7 +210,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
   PASS  E8 /phone-callback does not leak the debug trace
 
 [E9] 30 concurrent calls
-  30 calls in 88 ms, slowest 87 ms
+  30 calls in 85 ms, slowest 79 ms
   PASS  E9 all 30 succeeded, none transferred
   PASS  E9 slowest under 3000 ms
 
@@ -881,3 +881,30 @@ PASS  mapping
 PASS  bookings
 PASS  config
 PASS  probe
+
+==================== Browser demo: engine bundle, shims and page ====================
+  PASS  standalone page is a complete document; the publishable fragment has no <html>/<head>/<body>
+  PASS  page has a name-style <title> within the first 8 KB (artifact rule)
+  PASS  page loads no scripts from outside (everything inline, nothing blocked by the artifact CSP)
+  PASS  only Google Fonts stylesheets are linked (the one allowed external host)
+  PASS  page is under the 16 MB artifact limit
+  PASS  browser HMAC-SHA256 shim matches Node crypto on several inputs
+  PASS  browser constant-time compare accepts equal and rejects different bytes
+  PASS  the engine bundle is inlined as a global script
+  PASS  availability answered from the simulated NewBook, asking which site to book
+  PASS  read-back states the NewBook total and the park's hold time
+  PASS  booking held with a ref, payment link texted, owner alerted
+  PASS  owner snapshot shows the booking as held with a hold deadline an hour out
+  PASS  a call still in progress is NOT on the bill yet (no premature closing)
+  PASS  hanging up closes the call at its simulated length (5 exchanges x 20 s)
+  PASS  the bill shows 1 call of 100 s: $100 + $3 = $103
+  PASS  paying goes through the real signed-webhook handler and confirms the booking
+  PASS  paying the same link twice does nothing
+  PASS  half-way through the hold a reminder text goes out
+  PASS  then the unpaid hold expires and the site is released
+  PASS  busy staff: no transfer, asks for a name
+  PASS  message taken, acknowledged by text, owner told
+  PASS  after the owner changes the setting, the same complaint is transferred to staff
+  PASS  settings are validated (hold under 15 minutes rejected)
+
+>>> demo-web: PASS (23/23 checks)

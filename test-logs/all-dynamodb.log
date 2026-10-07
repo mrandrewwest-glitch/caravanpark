@@ -31,7 +31,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    clarify: no dates
 [ai reply]    "When are you thinking of coming?"
 [dialpad out] {"response_text":"When are you thinking of coming?","transfer_to_human":false,"metadata":{"call_sid":"mock_call_002","turn":1,"status":"gathering_info","park_id":"friend-caravan-park"}}
-[latency]     16 ms (budget 3000 ms)
+[latency]     12 ms (budget 3000 ms)
   PASS  low confidence / needs clarification
   PASS  asks when they are coming
   PASS  NewBook NOT queried
@@ -93,7 +93,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    clarify: no dates
 [ai reply]    "When are you thinking of coming?"
 [dialpad out] {"response_text":"When are you thinking of coming?","transfer_to_human":false,"metadata":{"call_sid":"x1","turn":1,"status":"gathering_info","park_id":"friend-caravan-park"}}
-[latency]     11 ms (budget 3000 ms)
+[latency]     12 ms (budget 3000 ms)
 
 --- E1 turn 2 ---
 [claude_mode] stub
@@ -103,7 +103,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    respond: availability
 [ai reply]    "Good news, we've got 5 sites for October 12th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?"
 [dialpad out] {"response_text":"Good news, we've got 5 sites for October 12th to October 15th. Site 8 is $120 a night with power, and Site 15 is $150 a night with power and water. Would one of those suit you?","transfer_to_human":false,"metadata":{"call_sid":"x1","turn":2,"status":"showing_availability","park_id":"friend-caravan-park"}}
-[latency]     62 ms (budget 3000 ms)
+[latency]     60 ms (budget 3000 ms)
   PASS  E1 turn counter increments and availability answered
   PASS  E1 checkout computed from nights (Oct 12 -> Oct 15)
 
@@ -145,7 +145,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [ai reply]    "We can't check availability right now, let me get someone for you."
 [dialpad out] {"response_text":"We can't check availability right now, let me get someone for you.","transfer_to_human":true,"metadata":{"call_sid":"x4","turn":1,"status":"ready_to_transfer","park_id":"friend-caravan-park"}}
 [handoff]     Customer: 2026-10-10 to 2026-10-15. Reason for transfer: availability system down.
-[latency]     60 ms (budget 3000 ms)
+[latency]     59 ms (budget 3000 ms)
   PASS  E4 escalates with outage message
 
 [E5] Claude API failure
@@ -158,7 +158,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    fallback: Claude 529 overloaded
 [ai reply]    "Our system is busy, let me transfer you to our team."
 [dialpad out] {"response_text":"Our system is busy, let me transfer you to our team.","transfer_to_human":true,"metadata":{"call_sid":"x5","turn":null,"status":"ready_to_transfer","error":"Claude 529 overloaded","park_id":"friend-caravan-park"}}
-[latency]     7 ms (budget 3000 ms)
+[latency]     6 ms (budget 3000 ms)
   PASS  E5 returns the safe fallback + transfer
 
 [E6] hung Claude call hits the hard deadline
@@ -171,7 +171,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    fallback: deadline exceeded
 [ai reply]    "Our system is busy, let me transfer you to our team."
 [dialpad out] {"response_text":"Our system is busy, let me transfer you to our team.","transfer_to_human":true,"metadata":{"call_sid":"x6","turn":null,"status":"ready_to_transfer","error":"deadline exceeded","park_id":"friend-caravan-park"}}
-[latency]     607 ms (budget 3000 ms)
+[latency]     609 ms (budget 3000 ms)
   PASS  E6 falls back within ~1s instead of hanging
 
 [E7] spam ends the call; complaint transfers; too-big party finds nothing
@@ -184,7 +184,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
 [decision]    end: spam/bot caller
 [ai reply]    "Thanks for calling, have a great day."
 [dialpad out] {"response_text":"Thanks for calling, have a great day.","transfer_to_human":false,"metadata":{"call_sid":"x7a","turn":1,"status":"ended","park_id":"friend-caravan-park"}}
-[latency]     11 ms (budget 3000 ms)
+[latency]     9 ms (budget 3000 ms)
   PASS  E7 spam: end_call, no transfer
   PASS  E7 complaint transfers
 
@@ -206,7 +206,7 @@ OnSite test run | claude client: STUB (offline rule-based stand-in, NOT Claude) 
   PASS  E8 /phone-callback does not leak the debug trace
 
 [E9] 30 concurrent calls
-  30 calls in 258 ms, slowest 257 ms
+  30 calls in 273 ms, slowest 272 ms
   PASS  E9 all 30 succeeded, none transferred
   PASS  E9 slowest under 3000 ms
 

@@ -1,0 +1,27 @@
+
+==================== Browser demo: engine bundle, shims and page ====================
+  PASS  standalone page is a complete document; the publishable fragment has no <html>/<head>/<body>
+  PASS  page has a name-style <title> within the first 8 KB (artifact rule)
+  PASS  page loads no scripts from outside (everything inline, nothing blocked by the artifact CSP)
+  PASS  only Google Fonts stylesheets are linked (the one allowed external host)
+  PASS  page is under the 16 MB artifact limit
+  PASS  browser HMAC-SHA256 shim matches Node crypto on several inputs
+  PASS  browser constant-time compare accepts equal and rejects different bytes
+  PASS  the engine bundle is inlined as a global script
+  PASS  availability answered from the simulated NewBook, asking which site to book
+  PASS  read-back states the NewBook total and the park's hold time
+  PASS  booking held with a ref, payment link texted, owner alerted
+  PASS  owner snapshot shows the booking as held with a hold deadline an hour out
+  PASS  a call still in progress is NOT on the bill yet (no premature closing)
+  PASS  hanging up closes the call at its simulated length (5 exchanges x 20 s)
+  PASS  the bill shows 1 call of 100 s: $100 + $3 = $103
+  PASS  paying goes through the real signed-webhook handler and confirms the booking
+  PASS  paying the same link twice does nothing
+  PASS  half-way through the hold a reminder text goes out
+  PASS  then the unpaid hold expires and the site is released
+  PASS  busy staff: no transfer, asks for a name
+  PASS  message taken, acknowledged by text, owner told
+  PASS  after the owner changes the setting, the same complaint is transferred to staff
+  PASS  settings are validated (hold under 15 minutes rejected)
+
+>>> demo-web: PASS (23/23 checks)
