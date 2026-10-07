@@ -1,0 +1,305 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  OnSite always-on container (server.js) on ECS Fargate behind an HTTPS Application Load Balancer, with its
+  DynamoDB table, one Secrets Manager secret (Anthropic + Twilio keys) and an SES sender identity for portal emails.
+  Deploy to ap-southeast-2. See infra/README.md.
+
+Parameters:
+  DomainName:
+    Type: String
+    Description: Public host name Twilio calls, e.g. calls.example.com (becomes PUBLIC_BASE_URL)
+  HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+    Description: Existing Route 53 hosted zone that contains DomainName (used for certificate validation and the alias record)
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: At least two public subnets in different Availability Zones (ALB and tasks both use them)
+  PortalFromEmail:
+    Type: String
+    Description: Sender address for owner-portal sign-in codes. Becomes an SES identity; you must click the verification email.
+  ParkId:
+    Type: String
+    Default: friend-caravan-park
+  ImageTag:
+    Type: String
+    Default: latest
+  DesiredCount:
+    Type: Number
+    Default: 0
+    Description: Keep 0 on the first deploy (the ECR repository is empty), push the image, then update to 1. Run ONE task; it also runs the five-minute jobs.
+    MinValue: 0
+    MaxValue: 1
+  TwilioRegion:
+    Type: String
+    Default: au1
+    Description: Twilio data region (au1 = Australia). Leave empty for a US-region Twilio account.
+
+Resources:
+  # ---------- Container image repository ----------
+  Repository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: onsite
+      ImageScanningConfiguration: { ScanOnPush: true }
+      LifecyclePolicy:
+        LifecyclePolicyText: '{"rules":[{"rulePriority":1,"description":"keep last 20","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":20},"action":{"type":"expire"}}]}'
+
+  # ---------- DynamoDB (same definition as sam.yaml / dynamo-store.js TABLE_DEFINITION) ----------
+  OnSiteTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: pk, AttributeType: S }
+        - { AttributeName: gsi1pk, AttributeType: S }
+        - { AttributeName: gsi1sk, AttributeType: S }
+        - { AttributeName: gsi2pk, AttributeType: S }
+        - { AttributeName: gsi2sk, AttributeType: S }
+      KeySchema:
+        - { AttributeName: pk, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: gsi1
+          KeySchema:
+            - { AttributeName: gsi1pk, KeyType: HASH }
+            - { AttributeName: gsi1sk, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: gsi2
+          KeySchema:
+            - { AttributeName: gsi2pk, KeyType: HASH }
+            - { AttributeName: gsi2sk, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+      TimeToLiveSpecification: { AttributeName: ttl, Enabled: true }
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }
+      SSESpecification: { SSEEnabled: true }
+
+  # ---------- Secrets Manager: ONE secret, JSON ----------
+  # Created with placeholders. Put the real values in OUTSIDE CloudFormation (see infra/README.md) so they never
+  # appear in the template, parameters or git:
+  #   {"anthropic_api_key":"sk-ant-...","account_sid":"AC...","auth_token":"...","api_key_sid":"SK...","api_key_secret":"..."}
+  # ECS injects anthropic_api_key as ANTHROPIC_API_KEY; TWILIO_CREDENTIALS_REF points at the whole secret.
+  Secret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: onsite/prod
+      Description: OnSite Anthropic API key and Twilio credentials (JSON)
+      SecretString: '{"anthropic_api_key":"REPLACE_ME","account_sid":"REPLACE_ME","auth_token":"REPLACE_ME"}'
+
+  # ---------- SES sender identity for portal emails ----------
+  PortalSenderIdentity:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: !Ref PortalFromEmail
+
+  # ---------- Logs ----------
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /onsite/server
+      RetentionInDays: 90
+
+  # ---------- Network security ----------
+  AlbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: OnSite ALB (public https; http redirects)
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0 }
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 }
+
+  TaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: OnSite tasks (only the ALB may connect)
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 3000, ToPort: 3000, SourceSecurityGroupId: !Ref AlbSecurityGroup }
+
+  # ---------- HTTPS ----------
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+      DomainValidationOptions:
+        - { DomainName: !Ref DomainName, HostedZoneId: !Ref HostedZoneId }
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Type: application
+      Scheme: internet-facing
+      Subnets: !Ref PublicSubnetIds
+      SecurityGroups: [!Ref AlbSecurityGroup]
+      LoadBalancerAttributes:
+        - { Key: idle_timeout.timeout_seconds, Value: '120' }   # WebSocket calls send audio-driven text constantly; 120s is ample
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: 3000
+      TargetType: ip
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 15
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 3
+      TargetGroupAttributes:
+        - { Key: deregistration_delay.timeout_seconds, Value: '30' }
+
+  HttpsListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 443
+      Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
+      Certificates: [{ CertificateArn: !Ref Certificate }]
+      DefaultActions: [{ Type: forward, TargetGroupArn: !Ref TargetGroup }]
+
+  HttpRedirectListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: redirect
+          RedirectConfig: { Protocol: HTTPS, Port: '443', StatusCode: HTTP_301 }
+
+  DnsRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref DomainName
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt LoadBalancer.DNSName
+        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID
+
+  # ---------- IAM ----------
+  ExecutionRole:   # lets ECS pull the image, write logs and read the secret into the container environment
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{ Effect: Allow, Principal: { Service: ecs-tasks.amazonaws.com }, Action: 'sts:AssumeRole' }]
+      ManagedPolicyArns: ['arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy']
+      Policies:
+        - PolicyName: read-secret
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement: [{ Effect: Allow, Action: 'secretsmanager:GetSecretValue', Resource: !Ref Secret }]
+
+  TaskRole:        # what the app itself may do
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{ Effect: Allow, Principal: { Service: ecs-tasks.amazonaws.com }, Action: 'sts:AssumeRole' }]
+      Policies:
+        - PolicyName: onsite-app
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow   # secrets.js reads the Twilio credentials from the secret ARN at runtime
+                Action: 'secretsmanager:GetSecretValue'
+                Resource: !Ref Secret
+              - Effect: Allow
+                Action: [dynamodb:GetItem, dynamodb:PutItem, dynamodb:UpdateItem, dynamodb:DeleteItem, dynamodb:Query, dynamodb:BatchGetItem, dynamodb:BatchWriteItem, dynamodb:ConditionCheckItem]
+                Resource: [!GetAtt OnSiteTable.Arn, !Sub '${OnSiteTable.Arn}/index/*']
+              - Effect: Allow
+                Action: ses:SendEmail
+                Resource: !Sub 'arn:${AWS::Partition}:ses:${AWS::Region}:${AWS::AccountId}:identity/${PortalFromEmail}'
+
+  # ---------- ECS ----------
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: onsite
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: onsite
+      RequiresCompatibilities: [FARGATE]
+      NetworkMode: awsvpc
+      Cpu: '512'
+      Memory: '1024'
+      ExecutionRoleArn: !GetAtt ExecutionRole.Arn
+      TaskRoleArn: !GetAtt TaskRole.Arn
+      ContainerDefinitions:
+        - Name: onsite
+          Image: !Sub '${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${Repository}:${ImageTag}'
+          Essential: true
+          StopTimeout: 30     # server.js drains for DRAIN_MS (20s) + 5s on SIGTERM
+          PortMappings: [{ ContainerPort: 3000 }]
+          Environment:
+            - { Name: NODE_ENV, Value: production }
+            - { Name: PORT, Value: '3000' }
+            - { Name: STORE_BACKEND, Value: dynamodb }
+            - { Name: DYNAMODB_TABLE, Value: !Ref OnSiteTable }
+            - { Name: CLAUDE_MODE, Value: live }
+            - { Name: PARK_ID, Value: !Ref ParkId }
+            - { Name: PORTAL_FROM_EMAIL, Value: !Ref PortalFromEmail }
+            - { Name: TRUST_PROXY, Value: '1' }          # behind the ALB: real client IP for sign-in rate limits
+            - { Name: TWILIO_ENABLED, Value: 'true' }
+            - { Name: PUBLIC_BASE_URL, Value: !Sub 'https://${DomainName}' }
+            - { Name: TWILIO_REGION, Value: !Ref TwilioRegion }
+            - { Name: TWILIO_CREDENTIALS_REF, Value: !Ref Secret }
+            - { Name: AWS_REGION, Value: !Ref 'AWS::Region' }
+          Secrets:
+            - { Name: ANTHROPIC_API_KEY, ValueFrom: !Sub '${Secret}:anthropic_api_key::' }
+          HealthCheck:
+            Command: [CMD-SHELL, "node -e \"fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+            Interval: 30
+            Timeout: 5
+            Retries: 3
+            StartPeriod: 30
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref 'AWS::Region'
+              awslogs-stream-prefix: server
+
+  Service:
+    Type: AWS::ECS::Service
+    DependsOn: [HttpsListener]
+    Properties:
+      Cluster: !Ref Cluster
+      ServiceName: onsite
+      LaunchType: FARGATE
+      DesiredCount: !Ref DesiredCount
+      TaskDefinition: !Ref TaskDefinition
+      HealthCheckGracePeriodSeconds: 60
+      DeploymentConfiguration:
+        MinimumHealthyPercent: 100
+        MaximumPercent: 200
+        DeploymentCircuitBreaker: { Enable: true, Rollback: true }
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED      # no NAT gateway: tasks reach AWS/Twilio/Anthropic directly; the security group only admits the ALB
+          Subnets: !Ref PublicSubnetIds
+          SecurityGroups: [!Ref TaskSecurityGroup]
+      LoadBalancers:
+        - { ContainerName: onsite, ContainerPort: 3000, TargetGroupArn: !Ref TargetGroup }
+
+Outputs:
+  RepositoryUri:
+    Value: !GetAtt Repository.RepositoryUri
+  TableName:
+    Value: !Ref OnSiteTable
+  SecretArn:
+    Value: !Ref Secret
+  PublicBaseUrl:
+    Value: !Sub 'https://${DomainName}'
+  TwilioVoiceWebhook:
+    Value: !Sub 'https://${DomainName}/twilio/voice'
+  TwilioStatusWebhook:
+    Value: !Sub 'https://${DomainName}/twilio/status'

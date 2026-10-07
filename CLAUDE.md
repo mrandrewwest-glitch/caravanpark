@@ -75,3 +75,7 @@ Constraints for each level:
 - MUST still execute the user's choice if they disagree with a suggestion
 
 <!-- END AWS Agent Toolkit rules -->
+
+### Saved preferences
+
+- help_level: MEDIUM
