@@ -197,6 +197,7 @@ A website for park owners and staff at `/portal/`: overview, call log (time, cal
 - **Protections:** CSRF header and Origin check, strict CSP (no inline script), HttpOnly SameSite=Strict cookie (Secure in production), CSV formula neutralisation, text-only rendering, audit log of settings changes.
 - **Editable settings:** name, hold minutes, deposit %, mode, booking mode, max nights, call-back promise, staff alert numbers and emails. Everything else (NewBook credentials, billing rates) is operator-only.
 - **Try it:** `npm run portal:demo` seeds two parks with three months of history and shows the sign-in code on the page (demo mode only; refused in production). Tests: `npm run test:portal`.
+- **Static demo:** `npm run build:portal-web` builds `portal-web/OnSite-portal-demo.html`, a single file that runs the real portal code in the browser on made-up data (no server, nothing stored). Good for sharing; it is not the real service.
 - **Not done:** SES sending is written but untested against real SES (verify a sender, set `PORTAL_FROM_EMAIL`); the portal has not been deployed or security reviewed by a third party.
 
 ## What's not built yet

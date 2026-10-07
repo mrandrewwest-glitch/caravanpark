@@ -1,0 +1,42 @@
+<title>OnSite Owner Portal</title>
+<style>
+/*CSS*/
+.demo-note { background: var(--accent-soft); color: var(--ink); border-bottom: 1px solid var(--line); padding: 8px 16px; font-size: 13px; text-align: center; }
+.demo-note b { font-weight: 650; }
+.demo-load { padding: 40px 16px; text-align: center; color: var(--muted); }
+</style>
+<div class="demo-note"><b>Interactive demo.</b> Simulated in this page with made-up data: nothing is sent or stored, and changes reset when you reload. Sign in as <b>owner@sunnyshores.example</b>, <b>staff@sunnyshores.example</b> or <b>owner@lakeview.example</b>; the sign-in code appears on screen.</div>
+<div id="app" aria-live="polite"><p class="demo-load">Setting up the demo…</p></div>
+<script type="text/plain" id="ui-src">
+/*UI*/
+</script>
+<script>
+/*ENGINE*/
+</script>
+<script>
+(function () {
+  var app = document.getElementById('app');
+  OnSitePortal.start().then(function (api) {
+    // CSV links point at the API; in this page there is no server, so build the file here and offer it.
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest && e.target.closest('a[href^="/portal/api/billing/"]');
+      if (!a) return;
+      e.preventDefault();
+      var href = a.getAttribute('href');
+      api.handle('GET', href, {}).then(function (out) {
+        if (out.status !== 200) return;
+        var name = href.split('/').pop();
+        var offer = window.claude && window.claude.use ? window.claude.use('downloads') : Promise.resolve(null);
+        return offer.then(function (d) {
+          if (d) return d.save({ filename: 'onsite-statement-' + name, data: out.body }).catch(function () {});
+          var url = URL.createObjectURL(new Blob([out.body], { type: 'text/csv' }));
+          var l = document.createElement('a'); l.href = url; l.download = 'onsite-statement-' + name; document.body.appendChild(l); l.click(); l.remove();
+        });
+      });
+    });
+    var s = document.createElement('script');
+    s.text = document.getElementById('ui-src').textContent;
+    document.body.appendChild(s);
+  }).catch(function (err) { app.textContent = 'The demo could not start: ' + err.message; });
+})();
+</script>

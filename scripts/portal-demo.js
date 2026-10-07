@@ -48,7 +48,7 @@ async function main() {
 
   // History: two earlier months and the current one.
   for (const monthsAgo of [2, 1, 0]) {
-    offset = -(monthsAgo * 30 + (monthsAgo ? 3 : 0)) * DAY;
+    offset = monthsAgo ? -(monthsAgo * 30 + 3) * DAY : -2 * DAY; // the current month ends before "now"
     for (const park of PARKS) {
       const calls = monthsAgo === 0 ? 6 : 9;
       for (let i = 0; i < calls; i += 1) {
