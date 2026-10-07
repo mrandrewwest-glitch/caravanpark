@@ -34,7 +34,8 @@
     "demo:web": "node scripts/build-demo-web.js",
     "test:demo-web": "node tests-demo-web.js",
     "portal:demo": "node scripts/portal-demo.js",
-    "test:portal": "node tests-portal.js all"
+    "test:portal": "node tests-portal.js all",
+    "build:portal-web": "node scripts/build-portal-web.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
