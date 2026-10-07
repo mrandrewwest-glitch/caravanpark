@@ -16,10 +16,11 @@
    ```
    The certificate validates through the hosted zone; the stack waits for it.
 3. Click the SES verification link sent to `PortalFromEmail`. New SES accounts are in the sandbox: portal codes only reach verified addresses until you request production access.
-4. Put the real keys in the secret (never in git or template parameters):
+4. Put the real keys in the secret (never in git or template parameters). CloudFormation already generated `admin_token` in it; `put-secret-value` replaces the whole secret, so keep that key:
    ```
+   TOKEN=$(aws secretsmanager get-secret-value --region ap-southeast-2 --secret-id onsite/prod --query SecretString --output text | jq -r .admin_token)
    aws secretsmanager put-secret-value --region ap-southeast-2 --secret-id onsite/prod --secret-string \
-     '{"anthropic_api_key":"sk-ant-...","account_sid":"AC...","auth_token":"...","api_key_sid":"SK...","api_key_secret":"..."}'
+     "{\"anthropic_api_key\":\"sk-ant-...\",\"account_sid\":\"AC...\",\"auth_token\":\"...\",\"api_key_sid\":\"SK...\",\"api_key_secret\":\"...\",\"admin_token\":\"$TOKEN\"}"
    ```
 5. Build and push the image, then start the task:
    ```
@@ -35,5 +36,5 @@
 
 - Run exactly one task (`DesiredCount` is capped at 1): it also runs hold-expiry/finalisation jobs. To scale out, set `RUN_JOBS=false` on the extra tasks.
 - Tasks use public IPs (no NAT gateway, lower cost); the task security group admits only the ALB.
-- `ADMIN_TOKEN` is intentionally not set, so `/admin/*` is disabled. Create portal users another way before relying on the portal.
+- `/admin/*` is enabled with a generated bearer token (`admin_token` in the secret, injected as `ADMIN_TOKEN`). Use it with `Authorization: Bearer <token>` to create portal users via `POST /admin/portal-users`. The ALB exposes `/admin/*` publicly, so treat the token like a password; rotate it by editing the secret and restarting the task.
 - Delete the stack and the DynamoDB table stays (data kept); the secret and everything else are removed.

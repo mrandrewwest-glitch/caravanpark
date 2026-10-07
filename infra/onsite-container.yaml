@@ -79,14 +79,18 @@ Resources:
   # ---------- Secrets Manager: ONE secret, JSON ----------
   # Created with placeholders. Put the real values in OUTSIDE CloudFormation (see infra/README.md) so they never
   # appear in the template, parameters or git:
-  #   {"anthropic_api_key":"sk-ant-...","account_sid":"AC...","auth_token":"...","api_key_sid":"SK...","api_key_secret":"..."}
+  #   {"anthropic_api_key":"sk-ant-...","account_sid":"AC...","auth_token":"...","api_key_sid":"SK...","api_key_secret":"...","admin_token":"<keep the generated one>"}
   # ECS injects anthropic_api_key as ANTHROPIC_API_KEY; TWILIO_CREDENTIALS_REF points at the whole secret.
   Secret:
     Type: AWS::SecretsManager::Secret
     Properties:
       Name: onsite/prod
       Description: OnSite Anthropic API key and Twilio credentials (JSON)
-      SecretString: '{"anthropic_api_key":"REPLACE_ME","account_sid":"REPLACE_ME","auth_token":"REPLACE_ME"}'
+      GenerateSecretString:
+        SecretStringTemplate: '{"anthropic_api_key":"REPLACE_ME","account_sid":"REPLACE_ME","auth_token":"REPLACE_ME"}'
+        GenerateStringKey: admin_token   # random 48-char token for /admin/*, injected as ADMIN_TOKEN
+        PasswordLength: 48
+        ExcludePunctuation: true
 
   # ---------- SES sender identity for portal emails ----------
   PortalSenderIdentity:
@@ -255,6 +259,7 @@ Resources:
             - { Name: AWS_REGION, Value: !Ref 'AWS::Region' }
           Secrets:
             - { Name: ANTHROPIC_API_KEY, ValueFrom: !Sub '${Secret}:anthropic_api_key::' }
+            - { Name: ADMIN_TOKEN, ValueFrom: !Sub '${Secret}:admin_token::' }
           HealthCheck:
             Command: [CMD-SHELL, "node -e \"fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
             Interval: 30
