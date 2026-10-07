@@ -28,6 +28,10 @@ function createLedger({ store, now = Date.now, logger }) {
         if (t.spam) r.spam = true;
         if (t.handoff) r.handoff = t.handoff;
         if (t.fallback) r.fallback_turns = (r.fallback_turns || 0) + 1;
+        // What the owner sees in the call log: a one-line summary and, once known, who it was. No transcript is kept here.
+        if (t.summary) r.summary = t.summary;
+        if (t.caller_name) r.caller_name = t.caller_name;
+        if (t.decision) r.last_decision = t.decision;
         for (const u of (t.usage || [])) {
           const m = (r.tokens[u.model] ||= { input: 0, output: 0, calls: 0 });
           m.input += u.input_tokens || 0;

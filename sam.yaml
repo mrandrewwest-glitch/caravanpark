@@ -3,6 +3,9 @@ Transform: AWS::Serverless-2016-10-31
 Description: OnSite - AI phone receptionist (Dialpad webhook -> API Gateway -> Lambda)
 
 Parameters:
+  PortalFromEmail:
+    Type: String
+    Description: SES-verified address the owner portal sends sign-in codes from
   AnthropicSecretArn:
     Type: String
     Description: Secrets Manager secret whose value is the Anthropic API key
@@ -32,12 +35,30 @@ Resources:
           CLAUDE_MODE: live
           ANTHROPIC_SECRET_ARN: !Ref AnthropicSecretArn
           PARK_ID: !Ref ParkId
+          PORTAL_FROM_EMAIL: !Ref PortalFromEmail   # must be an SES-verified sender
+          TRUST_PROXY: '1'                          # behind API Gateway: real client IP for sign-in rate limits
       Policies:
         - AWSSecretsManagerGetSecretValuePolicy:
             SecretArn: !Ref AnthropicSecretArn
         - DynamoDBCrudPolicy:
             TableName: !Ref OnSiteTable
+        - Statement:
+            - Effect: Allow
+              Action: ses:SendEmail
+              Resource: '*'
       Events:
+        PortalPages:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portal/{proxy+}
+            Method: ANY
+        PortalRoot:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /portal
+            Method: ANY
         PhoneCallback:
           Type: Api
           Properties:

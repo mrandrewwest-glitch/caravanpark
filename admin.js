@@ -41,6 +41,21 @@ function adminRouter(deps) {
     return res.json(await deps.ledger.statement(park, month));
   });
 
+  // Owner portal accounts. Owners cannot sign themselves up: the operator creates and disables them.
+  router.get('/portal-users', async (req, res) => {
+    const parkId = String(req.query.park_id || '');
+    if (!(await deps.registry.get(parkId))) return res.status(404).json({ error: 'unknown park' });
+    return res.json({ users: (await deps.portalAuth.listUsers(parkId)).map((u) => ({ email: u.email, name: u.name, disabled: !!u.disabled })) });
+  });
+  router.post('/portal-users', async (req, res) => {
+    const out = await deps.portalAuth.createUser(req.body || {});
+    return out.error ? res.status(400).json(out) : res.status(201).json({ email: out.user.email, park_id: out.user.park_id });
+  });
+  router.delete('/portal-users/:email', async (req, res) => {
+    const out = await deps.portalAuth.disableUser(req.params.email);
+    return out.error ? res.status(404).json(out) : res.json({ email: out.user.email, disabled: true });
+  });
+
   router.post('/jobs/run', async (req, res) => res.json(await runAll(deps)));
   return router;
 }

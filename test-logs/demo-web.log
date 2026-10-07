@@ -24,4 +24,21 @@
   PASS  after the owner changes the setting, the same complaint is transferred to staff
   PASS  settings are validated (hold under 15 minutes rejected)
 
->>> demo-web: PASS (23/23 checks)
+==================== Browser demo: Claude through the `sample` capability ====================
+  PASS  without the capability Claude is unavailable and cannot be switched on
+  PASS  with the capability it is available but OFF until the viewer switches it on
+  PASS  while off, the stand-in answers and Claude is never asked
+  PASS  with Claude on, the answer is Claude's and is labelled as such
+  PASS  extraction uses the quick tier and the engine's own instructions; the caller's words are fenced as data
+  PASS  the reply prompt contains only sites that suit this party (pet-friendly, big enough), nothing else from the park
+  PASS  the demo exposes what was understood from the caller's message
+  PASS  a whole booking runs on Claude's understanding (held, with a ref)
+  PASS  Claude's answers are checked by code: a site that was not offered cannot be booked even if Claude says so
+  PASS  a transient Claude failure falls back to the stand-in for that call; Claude stays on
+  PASS  if the viewer declines permission, Claude is switched off and the conversation carries on
+  PASS  once off, Claude is not asked again
+  PASS  a malformed Claude answer (not a JSON object) falls back for that step instead of breaking the call, and the turn is labelled as mixed
+  PASS  a slow Claude (over 3 s) still gets to answer in the demo, not the "system is busy" fallback
+  PASS  the same engine on the stand-in keeps the strict 2.8 s phone budget
+
+>>> demo-web: PASS (38/38 checks)

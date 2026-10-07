@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node index.js",
-    "test": "node tests.js all && node tests-platform.js all && node tests-store.js all && node tests-newbook.js all && node tests-demo-web.js",
+    "test": "node tests.js all && node tests-platform.js all && node tests-store.js all && node tests-newbook.js all && node tests-demo-web.js && node tests-portal.js all",
     "test:scenario-1": "node tests.js 1",
     "test:scenario-2": "node tests.js 2",
     "test:scenario-3": "node tests.js 3",
@@ -32,11 +32,14 @@
     "test:all-backends": "npm test && npm run test:rest && STORE=dynamo NEWBOOK=rest node tests.js all && STORE=dynamo NEWBOOK=rest node tests-platform.js all && npm run test:dynamo",
     "demo": "node demo.js",
     "demo:web": "node scripts/build-demo-web.js",
-    "test:demo-web": "node tests-demo-web.js"
+    "test:demo-web": "node tests-demo-web.js",
+    "portal:demo": "node scripts/portal-demo.js",
+    "test:portal": "node tests-portal.js all"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
     "@aws-sdk/client-dynamodb": "^3.1147.0",
+    "@aws-sdk/client-sesv2": "^3.1147.0",
     "@aws-sdk/client-secrets-manager": "^3.1147.0",
     "@aws-sdk/lib-dynamodb": "^3.1147.0",
     "dotenv": "^16.4.5",

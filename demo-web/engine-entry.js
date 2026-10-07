@@ -13,11 +13,17 @@ import { processCall } from '../conversation-logic';
 import { handlePaymentWebhook } from '../payment-handler';
 import { runAll } from '../jobs';
 import { dateInZone } from '../util';
+import { createSampleClaudeClient } from './claude-sample';
 
 const NUMBER = '+61290000000';
 const silent = { debug() {}, info() {}, warn() {}, error() {} };
 
-export function createEngine({ mode = 'diversion', holdMinutes = 60, onEvent = () => {} } = {}) {
+// Failures after which Claude is switched off for the rest of the session (the viewer said no, or it cannot work here).
+const PERMANENT = new Set(['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed', 'session_expired', 'tools_unavailable']);
+
+// `sample` is the page's "ask Claude" capability when it has one. Claude is OFF until setUseClaude(true); whenever it
+// fails the call falls back to the rule-based stand-in so the conversation never dies mid-demo.
+export function createEngine({ mode = 'diversion', holdMinutes = 60, onEvent = () => {}, sample = null } = {}) {
   const clock = { t: Date.now(), advance(ms) { clock.t += ms; } };
   const park = {
     id: 'demo-park', name: 'Sunny Shores Caravan Park', timezone: 'Australia/Sydney', numbers: [NUMBER], sms_from: NUMBER,
@@ -32,11 +38,33 @@ export function createEngine({ mode = 'diversion', holdMinutes = 60, onEvent = (
   const sms = createMockSmsProvider({ store });
   const notifier = createMockNotifier();
   const ledger = createLedger({ store, now: () => clock.t, logger: silent });
+  const stub = createStubClaudeClient();
+  let live = sample ? createSampleClaudeClient(sample) : null;
+  let useClaude = false;
+  let turnSources = [];
+  const guarded = (method) => async (args) => {
+    if (useClaude && live) {
+      try { const out = await live[method](args); turnSources.push('claude'); return out; } catch (e) {
+        const code = (e && e.code) || 'upstream_error';
+        if (code !== 'cancelled') {
+          if (PERMANENT.has(code)) useClaude = false;
+          onEvent({ type: 'claude', status: PERMANENT.has(code) ? 'off' : 'fallback', code });
+        }
+      }
+    }
+    turnSources.push('stand-in');
+    return stub[method](args);
+  };
+  const claude = { get mode() { return useClaude ? 'live' : 'stub'; }, extractIntent: guarded('extractIntent'), generateResponse: guarded('generateResponse') };
+  const config = {
+    // A phone call allows about 3 seconds; this demo waits much longer for Claude so the viewer sees its real answer.
+    get turnDeadlineMs() { return useClaude ? 60000 : 2800; }, extractTimeoutMs: 1500, responseTimeoutMs: 1800,
+  };
   const deps = {
-    claude: createStubClaudeClient(), store, logger: silent, now: () => clock.t,
+    claude, store, logger: silent, now: () => clock.t,
     today: (p) => dateInZone(clock.t, (p && p.timezone) || park.timezone), registry,
     providers: { newbook: () => nb, payments: () => pay }, sms, notifier, ledger,
-    config: { turnDeadlineMs: 2800, extractTimeoutMs: 1500, responseTimeoutMs: 1800 },
+    config,
   };
 
   // Surface side effects the moment they happen.
@@ -55,13 +83,22 @@ export function createEngine({ mode = 'diversion', holdMinutes = 60, onEvent = (
     setCallerPhone(p) { callerPhone = p; },
     get inCall() { return turns > 0; },
 
+    get claudeAvailable() { return !!live; },
+    attachSample(fn) { live = fn ? createSampleClaudeClient(fn) : null; if (!live) useClaude = false; },
+    get useClaude() { return useClaude; },
+    setUseClaude(v) { useClaude = !!v && !!live; return useClaude; },
+
     async say(text) {
       turns += 1;
+      turnSources = [];
       const t0 = performance.now();
       const r = await processCall({ call_sid: callSid, transcript: text, caller_phone: callerPhone, called_number: NUMBER, confidence: 0.95 }, deps);
+      const ex = r.trace && r.trace.extraction;
       return {
         text: r.response_text, transfer: !!r.transfer_to_human, handoff: r.handoff || null, booking: r.booking || null,
         end: !!r.end_call, ms: Math.round(performance.now() - t0), decision: r.trace && r.trace.decision,
+        understood: ex && typeof ex === 'object' ? ex : null,
+        source: !turnSources.length ? null : turnSources.every((x) => x === 'claude') ? 'claude' : turnSources.every((x) => x === 'stand-in') ? 'stand-in' : 'mixed',
       };
     },
 

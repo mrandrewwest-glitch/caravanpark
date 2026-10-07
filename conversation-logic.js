@@ -5,7 +5,7 @@ const { MSG, LIVE, LEAD } = require('./messages');
 const { redactCardNumbers } = require('./redact');
 const { bookingTurn, startMessageFlow, messageTurn } = require('./booking-flow');
 const { alertStaff } = require('./comms');
-const { TTL, keys } = require('./repos');
+const { TTL, keys, saveMessage } = require('./repos');
 
 const MAX_HISTORY = 80; // keeps the call-state item well under DynamoDB's 400 KB limit
 
@@ -51,6 +51,21 @@ function summarise(state, reason) {
   if (d.has_pet) parts.push('has a pet');
   if (d.special_requests) parts.push(`notes: ${d.special_requests}`);
   return `${parts.length ? `Customer: ${parts.join(', ')}. ` : ''}Reason for transfer: ${reason}.`;
+}
+
+// A one-line, plain-language description of the call so far, for the owner's call log.
+function describeCall(state, { spam = false, handoff = null } = {}) {
+  if (spam) return 'Spam or sales call.';
+  const d = state.extracted_data || {};
+  const bits = [];
+  if (d.check_in_date) bits.push(d.check_out_date ? `${d.check_in_date} to ${d.check_out_date}` : `from ${d.check_in_date}`);
+  if (d.num_guests) bits.push(`${d.num_guests} guests`);
+  if (d.has_pet) bits.push('with a pet');
+  const detail = bits.join(', ');
+  if (state.booking && state.booking.ref) return `Booking ${state.booking.ref} held${detail ? ` for ${detail}` : ''}.`;
+  if (handoff && handoff.strategy === 'take_message') return `Left a message for the team: ${handoff.reason}.${detail ? ` Asked about ${detail}.` : ''}`;
+  if (handoff && handoff.strategy === 'live_transfer') return `Transferred to staff: ${handoff.reason}.${detail ? ` Asked about ${detail}.` : ''}`;
+  return detail ? `Asked about ${detail}.` : 'General call.';
 }
 
 function relevantSites(sites, data) {
@@ -108,7 +123,7 @@ async function handleTurn(rawCall, deps, deadline, park) {
     if (state.conversation_history.length > MAX_HISTORY) state.conversation_history = state.conversation_history.slice(-MAX_HISTORY);
     await store.set(stateKey, state, { ttlSeconds: TTL.state });
     const handoffInfo = handoff || (transfer ? { strategy: 'live_transfer', reason: reason || decision } : null);
-    await ledger.recordTurn(call, park, { spam, handoff: handoffInfo, usage: meter.usage });
+    await ledger.recordTurn(call, park, { spam, handoff: handoffInfo, usage: meter.usage, decision, summary: describeCall(state, { spam, handoff: handoffInfo }), caller_name: (state.booking && state.booking.guest_name) || (state.flow && state.flow.name) || null });
     const result = {
       response_text: text,
       transfer_to_human: transfer,
@@ -300,10 +315,10 @@ async function processCall(call, deps) {
     const text = live ? MSG.fallback : MSG.fallbackMessage;
     const handoff = { strategy: live ? 'live_transfer' : 'take_message', reason: `system fallback: ${why}` };
     try {
-      await ledger.recordTurn(call, park, { fallback: true, handoff });
+      await ledger.recordTurn(call, park, { fallback: true, handoff, summary: `System problem (${why}); ${live ? 'sent to the transfer line' : 'a callback was recorded'}.` });
       if (!live) {
         // Nobody to transfer to: record a minimal message so staff still call back.
-        await deps.store.set(keys.message(park.id, call.call_sid), { id: `${park.id}:${call.call_sid}`, park_id: park.id, call_sid: call.call_sid, name: null, callback_number: call.caller_phone || null, caller_phone: call.caller_phone || null, reason: handoff.reason, notes: [], status: 'open', created_ms: deps.now(), summary: `System fallback (${why}); caller said: ${(call.transcript || '').slice(0, 200)}` }, { ttlSeconds: TTL.messages });
+        await saveMessage(deps.store, { id: `${park.id}:${call.call_sid}`, park_id: park.id, call_sid: call.call_sid, name: null, callback_number: call.caller_phone || null, caller_phone: call.caller_phone || null, reason: handoff.reason, notes: [], status: 'open', created_ms: deps.now(), summary: `System fallback (${why}); caller said: ${(call.transcript || '').slice(0, 200)}` });
         await alertStaff(deps, park, { kind: 'callback_requested', summary: `System fallback; call back ${call.caller_phone || 'unknown number'}. Reason: ${why}` });
       }
     } catch (err) { logger.error('fallback_bookkeeping_failed', { error: err.message }); }

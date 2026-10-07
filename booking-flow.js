@@ -4,7 +4,7 @@ const D = require('./dates');
 const { normaliseMobile, maskPhone, spokenDuration, money } = require('./util');
 const { MSG, SMS, range, short } = require('./messages');
 const { sendSms, alertStaff } = require('./comms');
-const { saveBooking, keys, TTL } = require('./repos');
+const { saveBooking, saveMessage } = require('./repos');
 
 // Deterministic booking state machine. Claude only extracts what the caller said;
 // code decides what happens next, what the price is, and when the NewBook booking is
@@ -267,7 +267,7 @@ async function advanceMessageFlow(ctx, lead) {
     id, park_id: park.id, call_sid: call.call_sid, name: f.name, callback_number: f.number, caller_phone: call.caller_phone || null,
     reason: f.reason, notes: f.notes, status: 'open', created_ms: deps.now(), summary: ctx.summary(f.reason), conversation_history: state.conversation_history,
   };
-  await deps.store.set(keys.message(park.id, call.call_sid), record, { ttlSeconds: TTL.messages });
+  await saveMessage(deps.store, record);
   f.done = true;
   state.status = 'message_taken';
   const textable = normaliseMobile(f.number);
